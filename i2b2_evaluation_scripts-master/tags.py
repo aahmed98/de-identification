@@ -207,10 +207,9 @@ class AnnotatorTag(Tag):
             self_end = int(self_dict.pop("end"))
             other_end = int(other_dict.pop("end"))
 
-            if self_dict.values() == other_dict.values() and \
-               abs(self_end - other_end) <= distance:
+            # if self_dict.values() == other_dict.values() and abs(self_end - other_end) <= distance:
+            if abs(self_end - other_end) <= distance:
                 return True
-
             return False
 
         def _fuzzy_end__hash__(self):
