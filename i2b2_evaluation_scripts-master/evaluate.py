@@ -272,6 +272,8 @@ def evaluate(system, gs, eval_class, **kwargs):
         Exception("Must pass file.xml file.xml  or [directory/]+ directory/"
                   "on command line!")
 
+    print("Evaluation: ",len(evaluations))
+
     return evaluations[0] if len(evaluations) == 1 else evaluations
 
 

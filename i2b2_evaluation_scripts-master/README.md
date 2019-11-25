@@ -120,7 +120,7 @@ Total                    Precision      1.0 (0.0)      1.0
 ```
 
 A few notes to explain this output:
--  The "(521)" represents the number of files the scrip was run on
+-  The "(521)" represents the number of files the script was run on
 -  "Strict" evaluations require that the offsets for the system outputs match *exactly*
 -  "Relaxed" evaluations allow for the "end" part of the offsets to be off by 2--this allows for variations in including "'s" and other endings that many systems will ignore due to tokenization
 -  "HIPPA" evalutions include only the tags that a strict interpretation of the HIPAA guidelines.  See the below list for which tags are included in this evaluation
