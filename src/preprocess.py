@@ -1,5 +1,7 @@
 import tarfile
 from zipfile import ZipFile
+import os
+import xml.etree.ElementTree as ET
 
 def extract_file(file_path:str):
     if (file_path.endswith('.tar.gz') or file_path.endswith('.tgz')):
@@ -16,12 +18,14 @@ def extract_file(file_path:str):
         except:
             print("Error in extracting zip file")
 
-def get_data(file_name):
-    pass
+def get_data(dir_name: str):
+    print("Fetching data...")
+    for filename in os.listdir(dir_name):
+        tree = ET.parse(filename)
 
 def process_data():
     pass
 
 if __name__ == "__main__":
-    pass
+    print("preprocessing...")
 
