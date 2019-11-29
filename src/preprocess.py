@@ -5,12 +5,16 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import numpy as np
 from nltk.tokenize import word_tokenize, sent_tokenize
+from keras.preprocessing.sequence import pad_sequences
 
 class PreProcessor:
     def __init__(self):
-        self.vocab_set = set()
-        self.vocab_dict = {}
-        self.files_seen = []
+        self.words_seen = set()
+        self.tags_seen = set()
+
+        self.files_seen = [] #keeps track of doc id's
+        
+        self.max_len = 0
 
     def extract_file(self,file_path:str):
         """
@@ -32,12 +36,36 @@ class PreProcessor:
 
     def create_vocab_dict(self):
         """
-        Creates vocab dictionary: word -> index
+        Creates word2idx dictionary: word -> index
+        Create idx2word dictionary: index -> word
         """
-        self.vocab_dict = {word: index for index,word in enumerate(self.vocab_set)}
+        self.word2idx = {word: index + 2 for index,word in enumerate(self.words_seen)}
+        self.word2idx["UNK"] = 1 # Unknown words
+        self.word2idx["PAD"] = 0 # Padding
 
-    def get_data(self,train_folders, test_unlabeled, test_labeled):
-        pass
+        self.idx2word = {index: word for word,index in self.word2idx.items()}
+
+        self.vocab_size = len(self.word2idx.keys()) 
+
+    def create_label_dict(self):
+        """
+        Creates tag2idx dictionary: BIO label -> index
+        Create idx2tag dictionary: index -> BIO label
+        """
+        self.tag2idx = {tag: index + 2 for index,tag in enumerate(self.tags_seen)}
+        self.tag2idx["O"] = 1
+        self.tag2idx["PAD"] = 0
+
+        self.idx2tag = {index: tag for tag,index in self.tag2idx.items()}
+
+        self.tag_size = len(self.tag2idx.keys())
+
+    def get_data(self,train_folder):
+        _, t_array, labels = self.process_data(train_folder)
+        self.create_vocab_dict()
+        self.create_label_dict()
+        _, X, y = self.create_train_set(t_array,labels)
+        return X, y
 
     def process_text(self,root):
         """
@@ -47,7 +75,10 @@ class PreProcessor:
         note: str = text_element.text
         note_sentences = sent_tokenize(note) # sentences
         note_tokens = list(map(lambda x: word_tokenize(x),note_sentences)) # sentences x tokens
-        self.vocab_set.update([token for sent in note_tokens for token in sent]) # add tokens to vocab set
+        max_len = max(len(sent) for sent in note_tokens)
+        if max_len > self.max_len:
+            self.max_len = max_len
+        self.words_seen.update([token for sent in note_tokens for token in sent]) # add tokens to vocab set
         return note_sentences, note_tokens
 
     def process_tags(self,root,note_tokens):
@@ -62,9 +93,11 @@ class PreProcessor:
             label_tokens = word_tokenize(attributes['text'])
             for i, token in enumerate(label_tokens):
                 if i == 0:
-                    tag_queue.append((token,'B-'+attributes['TYPE']))
+                    literal_tag ='B-'+attributes['TYPE']
                 else:
-                    tag_queue.append((token,'I-'+attributes['TYPE']))
+                    literal_tag ='I-'+attributes['TYPE']
+                tag_queue.append((token,literal_tag))
+                self.tags_seen.add(literal_tag)
 
         next_token, next_tag = tag_queue.pop(0) 
         for sentence in note_tokens:
@@ -111,13 +144,31 @@ class PreProcessor:
             for j in range(len(t_array[i])): # sentences
                 tokenized_sentence = t_array[i][j]
                 label_sentence = labels[i][j]
-                id_sentence = list(map(lambda token: self.vocab_dict[token],tokenized_sentence))
-                data.append({'docid':docid,'sentence':id_sentence,'label':label_sentence})
+                id_tokens = list(map(lambda token: self.word2idx[token],tokenized_sentence))
+                id_labels = list(map(lambda label: self.tag2idx[label],label_sentence))
+                data.append({'docid':docid,'sentence_w':tokenized_sentence,
+                'sentence_i':id_tokens,'label_w':label_sentence,'label_i':id_labels})
         df = pd.DataFrame(data)
-        print(df.head())
-        print(df.info())
-        print(df.describe())
-        print(df['label'].value_counts())
+
+        # pad id'd sentences and tags
+        sentence_ids = df["sentence_i"].copy()
+        X = pad_sequences(maxlen=self.max_len, sequences=sentence_ids, padding="post", value=self.word2idx["PAD"])
+        label_ids = df["label_i"].copy()
+        y = pad_sequences(maxlen=self.max_len, sequences=label_ids, padding="post", value=self.tag2idx["PAD"])
+        df["sentence_i"]  = X.tolist()
+        df["label_i"] = y.tolist()
+
+        print("Shape of X: ", X.shape)
+        print("Shape of y: ", y.shape)
+
+        return df, X, y
+
+    def save_to_excel(self,df):
+        if os.path.exists('sample_data.xlsx'):
+            os.remove('sample_data.xlsx')
+        df.to_excel('sample_data.xlsx', sheet_name='PHI Sample')
+
+        
 
 
 
