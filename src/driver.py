@@ -13,11 +13,11 @@ def fancy_print(input_sentence, predictions, labels):
         if w != "__PAD__":
             print("{:15}:{:5} ({})".format(w, true, pred))
 
-def train(pp, model, train_inputs, train_labels, batch_size):
+def train(pp, model, train_inputs, train_labels, batch_size,epochs):
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
     n = len(train_inputs)
     losses = []
-    for epoch in range(100):
+    for epoch in range(epochs):
         print("--------- EPOCH ",epoch,"-----------")
         X, y = shuffle(train_inputs,train_labels)
         #X,y = train_inputs,train_labels
@@ -32,8 +32,8 @@ def train(pp, model, train_inputs, train_labels, batch_size):
             epoch_loss += loss
             gradients = tape.gradient(loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            # if i % (batch_size*3) == 0:
-            #     print("Loss after batch ",int(i/batch_size), ": ",loss)
+            if i % (batch_size*5) == 0:
+                print("Loss after batch ",int(i/batch_size), ": ",loss)
         #sample_output(pp,model,train_inputs,train_labels)
         print("LOSS: ",epoch_loss)
         losses.append(epoch_loss)
@@ -46,8 +46,7 @@ def train(pp, model, train_inputs, train_labels, batch_size):
     plt.savefig(title+'.png')
     plt.close()
 
-    for _ in range(5):
-        sample_output(pp,model,train_inputs,train_labels)
+    sample_output(pp,model,train_inputs,train_labels)
 
 def sample_output(pp: PreProcessor, model, train_inputs, train_labels):
     n = len(train_inputs)
@@ -66,9 +65,12 @@ def sample_output(pp: PreProcessor, model, train_inputs, train_labels):
 
 def main():
     pp = PreProcessor()
-    X, y = pp.get_data("../Track1-de-indentification/PHI/")
+    train_folders = ["../training-PHI-Gold-Set1/","../training-PHI-Gold-Set2/"]
+    #train_folders = ["../training-PHI-Gold-Set1/"]
+    #train_folders = ["../Track1-de-indentification/PHI/"]
+    X, y = pp.get_data(train_folders)
     model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
-    train(pp,model,X,y,32)
+    train(pp,model,X,y,128,10)
 
 if __name__ == "__main__":
     main()

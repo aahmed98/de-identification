@@ -5,7 +5,7 @@ from preprocess import PreProcessor
 class BaselineModel(tf.keras.Model):
     def __init__(self,vocab_size,tag_size,max_len):
         super(BaselineModel,self).__init__()
-        self.vocab_size =  vocab_size
+        self.vocab_size =  vocab_size + 1 #add 1 because of weird problem with embedding lookup. only happens on large data. CPU/GPU related I think
         self.tag_size = tag_size
         self.max_len = max_len
         self.embedding_size = 64
