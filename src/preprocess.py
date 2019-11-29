@@ -60,11 +60,12 @@ class PreProcessor:
 
         self.tag_size = len(self.tag2idx.keys())
 
-    def get_data(self,train_folder):
-        _, t_array, labels = self.process_data(train_folder)
+    def get_data(self,train_folders):
+        _, t_array, labels = self.process_data(train_folders)
         self.create_vocab_dict()
         self.create_label_dict()
         _, X, y = self.create_train_set(t_array,labels)
+        #self.save_to_excel(df)
         return X, y
 
     def process_text(self,root):
@@ -113,7 +114,7 @@ class PreProcessor:
 
         return labels
 
-    def process_data(self,dir_name: str, is_train_set: bool = True):
+    def process_data(self,data_sets, is_train_set: bool = True):
         """
         Creates sentence and token vectors for all the files in a folder.
         """
@@ -122,15 +123,16 @@ class PreProcessor:
         s_array = [] # documents x sentences
         t_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
-        for filename in os.listdir(dir_name):
-            self.files_seen.append(filename)
-            tree = ET.parse(dir_name + filename) # must pass entire path
-            root = tree.getroot()
-            note_sentences, note_tokens = self.process_text(root)
-            s_array.append(note_sentences)
-            t_array.append(note_tokens)
-            if is_train_set:
-                labels.append(self.process_tags(root,note_tokens))
+        for dir_name in data_sets:
+            for filename in os.listdir(dir_name):
+                self.files_seen.append(filename)
+                tree = ET.parse(dir_name + filename) # must pass entire path
+                root = tree.getroot()
+                note_sentences, note_tokens = self.process_text(root)
+                s_array.append(note_sentences)
+                t_array.append(note_tokens)
+                if is_train_set:
+                    labels.append(self.process_tags(root,note_tokens))
     
         return s_array, t_array, labels
 
