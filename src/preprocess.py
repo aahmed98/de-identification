@@ -9,13 +9,13 @@ from keras.preprocessing.sequence import pad_sequences
 import json
 
 class PreProcessor:
-    def __init__(self):
+    def __init__(self,title):
         self.words_seen = set()
         self.tags_seen = set()
-
         self.files_seen = [] #keeps track of doc id's
         
         self.max_len = 0
+        self.title = title #title of folder to save data to
 
     def extract_file(self,file_path:str):
         """
@@ -54,21 +54,12 @@ class PreProcessor:
         Create idx2tag dictionary: index -> BIO label
         """
         self.tag2idx = {tag: index + 2 for index,tag in enumerate(self.tags_seen)}
-        self.tag2idx["O"] = 1
-        self.tag2idx["PAD"] = 0
+        self.tag2idx["O"] = 1 # non-PHI
+        self.tag2idx["PAD"] = 0 # PAD
 
         self.idx2tag = {index: tag for tag,index in self.tag2idx.items()}
 
         self.tag_size = len(self.tag2idx.keys())
-
-    def process_and_get_data(self,train_folders):
-        _, t_array, labels = self.process_data(train_folders)
-        self.create_vocab_dict()
-        self.create_label_dict()
-        df = self.convert_to_df(t_array,labels) 
-        X, y = self.create_train_set(df)
-        self.save_processed_data(df)
-        return X, y
 
     def process_text(self,root):
         """
@@ -94,7 +85,7 @@ class PreProcessor:
         for tag in tag_element:
             attributes = tag.attrib
             label_tokens = word_tokenize(attributes['text'])
-            for i, token in enumerate(label_tokens):
+            for i, token in enumerate(label_tokens): # seperate tags into tokens for B,I purposes
                 if i == 0:
                     literal_tag ='B-'+attributes['TYPE']
                 else:
@@ -102,7 +93,7 @@ class PreProcessor:
                 tag_queue.append((token,literal_tag))
                 self.tags_seen.add(literal_tag)
 
-        next_token, next_tag = tag_queue.pop(0) 
+        next_token, next_tag = tag_queue.pop(0) # next_token is next token to have PHI
         for sentence in note_tokens:
             label_sentence = []
             for token in sentence:
@@ -120,7 +111,7 @@ class PreProcessor:
         """
         Creates sentence and token vectors for all the files in a folder.
         """
-        print("Processing data...")
+        print("Preprocessing data...")
         s_array = [] # documents x sentences
         t_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
@@ -156,7 +147,7 @@ class PreProcessor:
 
     def unstring_df_series(self,ids):
         """
-        Unstrings a df series. Needed when you load data
+        Unstrings a df series. Needed when you load data.
         """
         temp = []
         for sentence in ids:
@@ -165,18 +156,31 @@ class PreProcessor:
 
     def create_train_set(self,df):
         """
-        Creates training set using df by padding sequences and returning X,y.
+        Creates training set using df by padding sequences and returning X,y. If loading, sentences are already padded.
         """
-        # pad id'd sentences and tags
-        sentence_ids = df["sentence_i"].copy()
-        if type(sentence_ids[0]) is str:
-            sentence_ids = self.unstring_df_series(sentence_ids)
-        X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=self.word2idx["PAD"])
+        if not {"padded_sentence","padded_label"}.issubset(df.columns): # NOT loading
+            # pad id'd sentences and tags
+            sentence_ids = df["sentence_i"].copy()
+            if type(sentence_ids[0]) is str:
+                sentence_ids = self.unstring_df_series(sentence_ids)
+            X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=self.word2idx["PAD"])
+            df["padded_sentence"] = X.tolist()
 
-        label_ids = df["label_i"].copy()
-        if type(label_ids[0]) is str:
-            label_ids = self.unstring_df_series(label_ids)
-        y = pad_sequences(maxlen=None, sequences=label_ids, padding="post", value=self.tag2idx["PAD"])
+            label_ids = df["label_i"].copy()
+            if type(label_ids[0]) is str:
+                label_ids = self.unstring_df_series(label_ids)
+            y = pad_sequences(maxlen=None, sequences=label_ids, padding="post", value=self.tag2idx["PAD"])
+            df["padded_label"] = y.tolist()
+
+        else: # loading
+            X = df["padded_sentence"].copy()
+            if type(X[0]) is str: # lists converted to strings when you save. must "unpack" string
+                X = np.array(self.unstring_df_series(X))
+            y = df["padded_label"].copy()
+            if type(y[0]) is str:
+                y = np.array(self.unstring_df_series(y))
+
+            self.max_len = y.shape[1]
 
         print("Shape of X: ", X.shape)
         print("Shape of y: ", y.shape)
@@ -184,8 +188,11 @@ class PreProcessor:
         return X, y
 
     def save_processed_data(self,df):
-        folder = "small_data/"
-        title = "small_data"
+        """
+        Saves df to csv/excel and dictionaries to json
+        """
+        title = self.title
+        folder = title + "/"
         path = folder + title
         if not os.path.exists(folder):
             os.makedirs(folder)
@@ -203,7 +210,13 @@ class PreProcessor:
             json.dump(self.idx2tag,f)
 
     def load_processed_data(self,dir_name):
+        """
+        Directory contains csv file and dictionaries as json
+        """
+        print("Loading preprocessed data...")
         df = None
+        if not dir_name.endswith('/'):
+            dir_name = dir_name + "/"
         for filename in os.listdir(dir_name):
             path = dir_name + filename
             if filename.endswith('.csv'):
@@ -222,11 +235,21 @@ class PreProcessor:
                     self.idx2tag = json.load(f)
         return df
 
-    def load_training_set(self,dir_name):
-        df = self.load_processed_data(dir_name)
-        return self.create_train_set(df)
-
-        
-
-
-
+    def get_data(self,train_folders,isLoading = False):
+        """
+        All-purpose function to get data.
+        isLoading: train_folder is SINGLE path to dir that contains .csv, dictionaries.
+        !isLoading: rain_folders is LIST of paths to dirs that contain i2b2 data 
+        """
+        if not isLoading:
+            _, t_array, labels = self.process_data(train_folders)
+            self.create_vocab_dict()
+            self.create_label_dict()
+            df = self.convert_to_df(t_array,labels)
+            X, y = self.create_train_set(df) # modifies df, which is why it comes before sav
+            self.save_processed_data(df)
+        else:
+            df = self.load_processed_data(train_folders)
+            X,y = self.create_train_set(df) # no modification to df in loading case
+        print("Preprocessing complete.")
+        return X, y
