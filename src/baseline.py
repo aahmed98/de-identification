@@ -10,6 +10,7 @@ class BaselineModel(tf.keras.Model):
         self.max_len = max_len
         self.embedding_size = 64
         self.rnn_size = 128
+        self.title = "baseline-rnn"
 
         self.E = tf.Variable(tf.random.normal([self.vocab_size,self.embedding_size],stddev = 0.1, dtype= tf.float32))
         self.rnn = tf.keras.layers.GRU(units= self.rnn_size, return_sequences = True)
