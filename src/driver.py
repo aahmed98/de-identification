@@ -10,10 +10,10 @@ def fancy_print(input_sentence, predictions, labels):
     print("{:15} {:5}: ({})".format("Word", "Pred", "True"))
     print("="*30)
     for w, true, pred in zip(input_sentence, predictions, labels):
-        if w != "__PAD__":
+        if w != "PAD":
             print("{:15}:{:5} ({})".format(w, true, pred))
 
-def train(pp, model, manager, train_inputs, train_labels, batch_size = 32,epochs= 10):
+def train(model, manager, train_inputs, train_labels, batch_size = 32,epochs= 10):
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
     n = len(train_inputs)
     losses = []
@@ -38,7 +38,7 @@ def train(pp, model, manager, train_inputs, train_labels, batch_size = 32,epochs
         losses.append(epoch_loss)
         manager.save() # save checkpoint at end of epoch
     
-    title = "baseline-rnn"
+    title = model.title
     plt.plot(losses)
     plt.xlabel("epoch")
     plt.ylabel("cross-entropy loss")
@@ -46,16 +46,18 @@ def train(pp, model, manager, train_inputs, train_labels, batch_size = 32,epochs
     plt.savefig(title+'.png')
     plt.close()
 
-    sample_output(pp,model,train_inputs,train_labels)
+    #sample_output(pp,model,train_inputs,train_labels)
 
 def test(pp,model,checkpoint,manager,test_inputs,test_labels):
-    checkpoint.restore(manager.latest_checkpoint)
-    sample_output(pp,model,test_inputs,test_labels)
-
+    print("Loading checkpoint...")
+    #checkpoint.restore(manager.latest_checkpoint)
+    for _ in range(10):
+        sample_output(pp,model,test_inputs,test_labels)
 
 def sample_output(pp: PreProcessor, model, train_inputs, train_labels):
     n = len(train_inputs)
     rand_idx = randint(0,n)
+    print("Sentence #: ",rand_idx)
     sample_input = train_inputs[rand_idx]
     sample_labels = train_labels[rand_idx]
     sample_input_reshaped = tf.reshape(sample_input,(1,-1))
@@ -73,15 +75,15 @@ def main():
     #train_folders = ["../training-PHI-Gold-Set1/","../training-PHI-Gold-Set2/"]
     #train_folders = ["../training-PHI-Gold-Set1/"]
     train_folders = ["../Track1-de-indentification/PHI/"]
-    X, y = pp.get_data(train_folders)
-
-    model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
-    checkpoint_dir = './checkpoints'
-    #checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-    checkpoint = tf.train.Checkpoint(model=model)
-    manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
-    #train(pp,model, manager, X,y)
-    test(pp,model,checkpoint,manager,X,y)
+    #X, y = pp.process_and_get_data(train_folders)
+    X,y = pp.load_training_set("small_data/")
+    print(y[0])
+    # model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
+    # checkpoint_dir = './checkpoints'
+    # checkpoint = tf.train.Checkpoint(model=model)
+    # manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
+    # train(model, manager, X,y,epochs=50)
+    # test(pp,model,checkpoint,manager,X,y)
 
 if __name__ == "__main__":
     main()

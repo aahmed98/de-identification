@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from nltk.tokenize import word_tokenize, sent_tokenize
 from keras.preprocessing.sequence import pad_sequences
+import json
 
 class PreProcessor:
     def __init__(self):
@@ -60,12 +61,13 @@ class PreProcessor:
 
         self.tag_size = len(self.tag2idx.keys())
 
-    def get_data(self,train_folders):
+    def process_and_get_data(self,train_folders):
         _, t_array, labels = self.process_data(train_folders)
         self.create_vocab_dict()
         self.create_label_dict()
-        _, X, y = self.create_train_set(t_array,labels)
-        #self.save_to_excel(df)
+        df = self.convert_to_df(t_array,labels) 
+        X, y = self.create_train_set(df)
+        self.save_processed_data(df)
         return X, y
 
     def process_text(self,root):
@@ -119,7 +121,6 @@ class PreProcessor:
         Creates sentence and token vectors for all the files in a folder.
         """
         print("Processing data...")
-        i = 0
         s_array = [] # documents x sentences
         t_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
@@ -136,9 +137,9 @@ class PreProcessor:
     
         return s_array, t_array, labels
 
-    def create_train_set(self,t_array,labels):
+    def convert_to_df(self,t_array,labels):
         """
-        Converts data to pandas df. 
+        Converts data to pandas df. df contains docid, unpadded sentences, and unpadded tags.
         """
         data = []
         for i in range(len(t_array)): # documents
@@ -151,24 +152,79 @@ class PreProcessor:
                 data.append({'docid':docid,'sentence_w':tokenized_sentence,
                 'sentence_i':id_tokens,'label_w':label_sentence,'label_i':id_labels})
         df = pd.DataFrame(data)
+        return df
 
+    def unstring_df_series(self,ids):
+        """
+        Unstrings a df series. Needed when you load data
+        """
+        temp = []
+        for sentence in ids:
+            temp.append(eval(sentence))
+        return temp
+
+    def create_train_set(self,df):
+        """
+        Creates training set using df by padding sequences and returning X,y.
+        """
         # pad id'd sentences and tags
         sentence_ids = df["sentence_i"].copy()
-        X = pad_sequences(maxlen=self.max_len, sequences=sentence_ids, padding="post", value=self.word2idx["PAD"])
+        if type(sentence_ids[0]) is str:
+            sentence_ids = self.unstring_df_series(sentence_ids)
+        X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=self.word2idx["PAD"])
+
         label_ids = df["label_i"].copy()
-        y = pad_sequences(maxlen=self.max_len, sequences=label_ids, padding="post", value=self.tag2idx["PAD"])
-        df["sentence_i"]  = X.tolist()
-        df["label_i"] = y.tolist()
+        if type(label_ids[0]) is str:
+            label_ids = self.unstring_df_series(label_ids)
+        y = pad_sequences(maxlen=None, sequences=label_ids, padding="post", value=self.tag2idx["PAD"])
 
         print("Shape of X: ", X.shape)
         print("Shape of y: ", y.shape)
 
-        return df, X, y
+        return X, y
 
-    def save_to_excel(self,df):
-        if os.path.exists('sample_data.xlsx'):
-            os.remove('sample_data.xlsx')
-        df.to_excel('sample_data.xlsx', sheet_name='PHI Sample')
+    def save_processed_data(self,df):
+        folder = "small_data/"
+        title = "small_data"
+        path = folder + title
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        if os.path.exists(path+'.xlsx'):
+            os.remove(path+'.xlsx')
+        df.to_excel(path+'.xlsx', sheet_name='PHI '+title)
+        df.to_csv(path+'.csv')
+        with open(path+'_word2idx.json','w') as f:
+            json.dump(self.word2idx,f)
+        with open(path+'_tag2idx.json','w') as f:
+            json.dump(self.tag2idx,f)
+        with open(path+'_idx2word.json','w') as f:
+            json.dump(self.idx2word,f)
+        with open(path+'_idx2tag.json','w') as f:
+            json.dump(self.idx2tag,f)
+
+    def load_processed_data(self,dir_name):
+        df = None
+        for filename in os.listdir(dir_name):
+            path = dir_name + filename
+            if filename.endswith('.csv'):
+                df = pd.read_csv(path)
+            if filename.endswith('word2idx.json'):
+                with open(path) as f:
+                    self.word2idx = json.load(f)
+            if filename.endswith('tag2idx.json'):
+                with open(path) as f:
+                    self.tag2idx = json.load(f)
+            if filename.endswith('idx2word.json'):
+                with open(path) as f:
+                    self.idx2word = json.load(f)
+            if filename.endswith('idx2tag.json'):
+                with open(path) as f:
+                    self.idx2tag = json.load(f)
+        return df
+
+    def load_training_set(self,dir_name):
+        df = self.load_processed_data(dir_name)
+        return self.create_train_set(df)
 
         
 
