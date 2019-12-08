@@ -1,4 +1,4 @@
-from preprocess import PreProcessor
+from preprocess import PreProcessor, df_to_train_set
 from baseline import BaselineModel
 from random import randint
 from sklearn.utils import shuffle
@@ -15,11 +15,13 @@ DATASETS = [
 ]
 
 def predict_document(model,docid,df):
+    """
+    df contains all sentences of docid.
+    """
     unique_docids = df["docid"].unique()
     assert docid in unique_docids, "DocID not in DataFrame"
     doc_sentences = df.groupby(by="docid").get_group(docid) # dataframe
-    pp = PreProcessor(docid)
-    X,_ = pp.create_train_set(doc_sentences,True)
+    X,_ = df_to_train_set(doc_sentences,True)
     predictions = tf.argmax(model(X),axis=2).numpy()
     return predictions
 
@@ -40,7 +42,7 @@ def sample_output(model, train_inputs, train_labels, pp, df=None,rand_idx = None
     true_tags = [pp.idx2tag[idx] for idx in sample_labels]
     predicted_tags = [pp.idx2tag[idx] for idx in mle_output]
 
-    # fancy_print(orig_sentence,predicted_tags,true_tags)
+    fancy_print(orig_sentence,predicted_tags,true_tags)
 
 def fancy_print(input_sentence, predictions, labels):
     """
@@ -94,13 +96,13 @@ def test(model,test_inputs,test_labels,pp,df,checkpoint = None,manager= None):
         print("Loading checkpoint...")
         checkpoint.restore(manager.latest_checkpoint)
 
-    tree = ET.parse(DATASETS[0][1][0] + "320-01.xml") # must pass entire path
-    root = tree.getroot()
-    note = root.find('TEXT').text
-    predictions = predict_document(model,'320-01',df)
-    doc_labels = get_label_positions(df,'320-01',predictions)
-    print(doc_labels)
-    bio_to_i2d2(df,doc_labels,note)
+    # tree = ET.parse(DATASETS[0][1][0] + "320-01.xml") # must pass entire path
+    # root = tree.getroot()
+    # note = root.find('TEXT').text
+    # predictions = predict_document(model,'320-01',df)
+    # doc_labels = get_label_positions(df,'320-01',predictions)
+    # print(doc_labels)
+    # bio_to_i2d2(df,doc_labels,note)
 
     # for _ in range(10):
     #     sample_output(model,test_inputs,test_labels,pp,df)
@@ -110,7 +112,7 @@ def test(model,test_inputs,test_labels,pp,df,checkpoint = None,manager= None):
 def main():
     # LOAD DATA
     sample_data = DATASETS[0]
-    pp = PreProcessor(sample_data[0])
+    pp = PreProcessor(sample_data[0]) # PreProcesser attached to data. Contains dictionaries, max_len, vocab_size, etc.
     load_folder = sample_data[0]
     X,y,df = pp.get_data(load_folder,True)
     # train_folder = sample_data[1]
