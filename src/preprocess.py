@@ -61,19 +61,51 @@ class PreProcessor:
 
         self.tag_size = len(self.tag2idx.keys())
 
-    def process_text(self,root):
+    def get_characters(self,note,tokens):
+        """
+        Gets the character range of each token.
+        Params:
+        note: raw string 
+        tokens: sentences x tokens
+        Returns:
+        characters: sentences x tokens
+        """
+        current_token = ""
+        characters = [] # list of tuples (start,end) of each token
+        pointer = 0
+        for i in range(len(tokens)): #sentences
+            sentence_chars = []
+            for j in range(len(tokens[i])): #tokens
+                current_token = tokens[i][j]
+                window_size = len(current_token)
+                while True:
+                    note_window = note[pointer:pointer+window_size]
+                    if note_window == current_token:
+                        #print("matched! ",current_token, " range: (",pointer,",",pointer+window_size,")")
+                        sentence_chars.append((pointer,pointer+window_size))
+                        pointer += 1
+                        break
+                    pointer += 1
+            characters.append(sentence_chars)
+        return characters
+
+    def process_text(self,root,toPrint = 1):
         """
         Processes the actual note. Tokenizes, adds to vocab, returns (1xsentences),(1xsentencesxtokens)
         """
+        #TODO: some text has dashes that are not tokenized. but the labels don't have those dashes.
         text_element = root.find('TEXT') # finds element with TEXT tag (i.e. the note)
         note: str = text_element.text
         note_sentences = sent_tokenize(note) # sentences
         note_tokens = list(map(lambda x: word_tokenize(x),note_sentences)) # sentences x tokens
+        note_characters = self.get_characters(note,note_tokens) # sentences x tokens
+        if toPrint == 0:
+            self.get_characters(note,note_tokens)
         max_len = max(len(sent) for sent in note_tokens)
         if max_len > self.max_len:
             self.max_len = max_len
         self.words_seen.update([token for sent in note_tokens for token in sent]) # add tokens to vocab set
-        return note_sentences, note_tokens
+        return note_sentences, note_tokens, note_characters
 
     def process_tags(self,root,note_tokens):
         """
@@ -114,21 +146,25 @@ class PreProcessor:
         print("Preprocessing data...")
         s_array = [] # documents x sentences
         t_array = [] # documents x sentences x tokens
+        c_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
+        i = 0
         for dir_name in data_sets:
             for filename in os.listdir(dir_name):
                 self.files_seen.append(filename)
                 tree = ET.parse(dir_name + filename) # must pass entire path
                 root = tree.getroot()
-                note_sentences, note_tokens = self.process_text(root)
+                note_sentences, note_tokens, note_characters = self.process_text(root,i)
                 s_array.append(note_sentences)
                 t_array.append(note_tokens)
+                c_array.append(note_characters)
                 if is_train_set:
                     labels.append(self.process_tags(root,note_tokens))
+                i+=1
     
-        return s_array, t_array, labels
+        return s_array, t_array,c_array, labels
 
-    def convert_to_df(self,t_array,labels):
+    def convert_to_df(self,t_array,c_array,labels):
         """
         Converts data to pandas df. df contains docid, unpadded sentences, and unpadded tags.
         """
@@ -137,13 +173,18 @@ class PreProcessor:
             docid = self.files_seen.pop(0)[:-4] # strips .xml from doc id 
             for j in range(len(t_array[i])): # sentences
                 tokenized_sentence = t_array[i][j]
+                character_sentence = c_array[i][j]
                 label_sentence = labels[i][j]
                 id_tokens = list(map(lambda token: self.word2idx[token],tokenized_sentence))
                 id_labels = list(map(lambda label: self.tag2idx[label],label_sentence))
-                data.append({'docid':docid,'sentence_w':tokenized_sentence,
-                'sentence_i':id_tokens,'label_w':label_sentence,'label_i':id_labels})
+                data.append({'docid':docid,'sentence':tokenized_sentence,
+                'sentence_ids':id_tokens,'labels':label_sentence,'labels_ids':id_labels,
+                'characters':character_sentence})
         df = pd.DataFrame(data)
         return df
+
+    def unstring_ids(self,dictionary):
+        return {int(k):v for k,v in dictionary.items()}
 
     def unstring_df_series(self,ids):
         """
@@ -154,29 +195,29 @@ class PreProcessor:
             temp.append(eval(sentence))
         return temp
 
-    def create_train_set(self,df):
+    def create_train_set(self,df,loading=False):
         """
         Creates training set using df by padding sequences and returning X,y. If loading, sentences are already padded.
         """
-        if not {"padded_sentence","padded_label"}.issubset(df.columns): # NOT loading
+        if not loading: # NOT loading
             # pad id'd sentences and tags
-            sentence_ids = df["sentence_i"].copy()
+            sentence_ids = df["sentence_ids"].copy()
             if type(sentence_ids[0]) is str:
                 sentence_ids = self.unstring_df_series(sentence_ids)
             X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=self.word2idx["PAD"])
             df["padded_sentence"] = X.tolist()
 
-            label_ids = df["label_i"].copy()
+            label_ids = df["labels_ids"].copy()
             if type(label_ids[0]) is str:
                 label_ids = self.unstring_df_series(label_ids)
             y = pad_sequences(maxlen=None, sequences=label_ids, padding="post", value=self.tag2idx["PAD"])
-            df["padded_label"] = y.tolist()
+            df["padded_labels"] = y.tolist()
 
         else: # loading
             X = df["padded_sentence"].copy()
             if type(X[0]) is str: # lists converted to strings when you save. must "unpack" string
                 X = np.array(self.unstring_df_series(X))
-            y = df["padded_label"].copy()
+            y = df["padded_labels"].copy()
             if type(y[0]) is str:
                 y = np.array(self.unstring_df_series(y))
 
@@ -224,15 +265,17 @@ class PreProcessor:
             if filename.endswith('word2idx.json'):
                 with open(path) as f:
                     self.word2idx = json.load(f)
+                    self.vocab_size = len(self.word2idx.keys()) 
             if filename.endswith('tag2idx.json'):
                 with open(path) as f:
                     self.tag2idx = json.load(f)
+                    self.tag_size = len(self.tag2idx.keys())
             if filename.endswith('idx2word.json'):
                 with open(path) as f:
-                    self.idx2word = json.load(f)
+                    self.idx2word = self.unstring_ids(json.load(f))
             if filename.endswith('idx2tag.json'):
                 with open(path) as f:
-                    self.idx2tag = json.load(f)
+                    self.idx2tag = self.unstring_ids(json.load(f))
         return df
 
     def get_data(self,train_folders,isLoading = False):
@@ -242,14 +285,14 @@ class PreProcessor:
         !isLoading: rain_folders is LIST of paths to dirs that contain i2b2 data 
         """
         if not isLoading:
-            _, t_array, labels = self.process_data(train_folders)
+            _, t_array,c_array,labels = self.process_data(train_folders)
             self.create_vocab_dict()
             self.create_label_dict()
-            df = self.convert_to_df(t_array,labels)
-            X, y = self.create_train_set(df) # modifies df, which is why it comes before sav
+            df = self.convert_to_df(t_array,c_array,labels)
+            X, y = self.create_train_set(df,isLoading) # modifies df, which is why it comes before sav
             self.save_processed_data(df)
         else:
             df = self.load_processed_data(train_folders)
-            X,y = self.create_train_set(df) # no modification to df in loading case
+            X,y = self.create_train_set(df,isLoading) # no modification to df in loading case
         print("Preprocessing complete.")
-        return X, y
+        return X, y, df
