@@ -8,6 +8,73 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from keras.preprocessing.sequence import pad_sequences
 import json
 
+PAD_IDX = 0
+UNK_IDX = NON_PHI_IDX = 1
+
+def extract_file(file_path:str):
+    """
+    Extracts notes from compressed files. Only used once. 
+    """
+    if (file_path.endswith('.tar.gz') or file_path.endswith('.tgz')):
+        try:
+            tar = tarfile.open(file_path)
+            tar.extractall()
+            tar.close()
+        except:
+            print("Error in extracting tar file")
+    elif (file_path.endswith('.zip')):
+        try:
+            with ZipFile(file_path,'r') as zipObj:
+                zipObj.extractall()
+        except:
+            print("Error in extracting zip file")
+
+def unstring_ids(dictionary):
+    """
+    Converts keys of dictionary to integers. Necessary because they are stored as string in JSON.
+    """
+    return {int(k):v for k,v in dictionary.items()}
+
+def unstring_df_series(df_column):
+    """
+    Unstrings a df series. Needed when you load data.
+    """
+    temp = []
+    for sentence in df_column:
+        temp.append(eval(sentence))
+    return temp
+
+def df_to_train_set(df: pd.DataFrame, loading = False):
+    """
+    Creates training set using df by padding sequences and returning X,y. If loading, sentences should already be padded.
+    """
+    if not loading: # NOT loading
+        # pad id'd sentences and tags
+        sentence_ids = df["sentence_ids"].copy()
+        if type(sentence_ids[0]) is str:
+            sentence_ids = unstring_df_series(sentence_ids)
+        X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=PAD_IDX)
+        df["padded_sentence"] = X.tolist()
+
+        label_ids = df["labels_ids"].copy()
+        if type(label_ids[0]) is str:
+            label_ids = unstring_df_series(label_ids)
+        y = pad_sequences(maxlen=None, sequences=label_ids, padding="post", value=PAD_IDX)
+        df["padded_labels"] = y.tolist()
+
+    else: # loading
+        X = df["padded_sentence"].copy()
+        if type(X[0]) is str: # lists converted to strings when you save. must "unpack" string
+            X = np.array(unstring_df_series(X))
+        y = df["padded_labels"].copy()
+        if type(y[0]) is str:
+            y = np.array(unstring_df_series(y))
+
+    print("Shape of X: ", X.shape)
+    print("Shape of y: ", y.shape)
+
+    return X, y
+
 class PreProcessor:
     def __init__(self,title):
         self.words_seen = set()
@@ -17,32 +84,14 @@ class PreProcessor:
         self.max_len = 0
         self.title = title #title of folder to save data to
 
-    def extract_file(self,file_path:str):
-        """
-        Extracts notes from compressed files. Only used once. 
-        """
-        if (file_path.endswith('.tar.gz') or file_path.endswith('.tgz')):
-            try:
-                tar = tarfile.open(file_path)
-                tar.extractall()
-                tar.close()
-            except:
-                print("Error in extracting tar file")
-        elif (file_path.endswith('.zip')):
-            try:
-                with ZipFile(file_path,'r') as zipObj:
-                    zipObj.extractall()
-            except:
-                print("Error in extracting zip file")
-
     def create_vocab_dict(self):
         """
         Creates word2idx dictionary: word -> index
         Create idx2word dictionary: index -> word
         """
         self.word2idx = {word: index + 2 for index,word in enumerate(self.words_seen)}
-        self.word2idx["UNK"] = 1 # Unknown words
-        self.word2idx["PAD"] = 0 # Padding
+        self.word2idx["PAD"] = PAD_IDX # Padding
+        self.word2idx["UNK"] = UNK_IDX # Unknown words
 
         self.idx2word = {index: word for word,index in self.word2idx.items()}
 
@@ -54,14 +103,14 @@ class PreProcessor:
         Create idx2tag dictionary: index -> BIO label
         """
         self.tag2idx = {tag: index + 2 for index,tag in enumerate(self.tags_seen)}
-        self.tag2idx["O"] = 1 # non-PHI
-        self.tag2idx["PAD"] = 0 # PAD
-
+        self.tag2idx["PAD"] = PAD_IDX # PAD
+        self.tag2idx["O"] = NON_PHI_IDX # non-PHI
+        
         self.idx2tag = {index: tag for tag,index in self.tag2idx.items()}
 
         self.tag_size = len(self.tag2idx.keys())
 
-    def get_characters(self,note,tokens):
+    def process_characters(self,note,tokens):
         """
         Gets the character range of each token.
         Params:
@@ -89,18 +138,14 @@ class PreProcessor:
             characters.append(sentence_chars)
         return characters
 
-    def process_text(self,root,toPrint = 1):
+    def process_text(self,note):
         """
         Processes the actual note. Tokenizes, adds to vocab, returns (1xsentences),(1xsentencesxtokens)
         """
         #TODO: some text has dashes that are not tokenized. but the labels don't have those dashes.
-        text_element = root.find('TEXT') # finds element with TEXT tag (i.e. the note)
-        note: str = text_element.text
         note_sentences = sent_tokenize(note) # sentences
         note_tokens = list(map(lambda x: word_tokenize(x),note_sentences)) # sentences x tokens
-        note_characters = self.get_characters(note,note_tokens) # sentences x tokens
-        if toPrint == 0:
-            self.get_characters(note,note_tokens)
+        note_characters = self.process_characters(note,note_tokens) # sentences x tokens
         max_len = max(len(sent) for sent in note_tokens)
         if max_len > self.max_len:
             self.max_len = max_len
@@ -111,10 +156,10 @@ class PreProcessor:
         """
         Processes tags for a document. Uses BIO system presented in Deep Learning paper.
         """
-        labels = []
-        tag_element = root.find('TAGS')
+        
+        tags = root.find('TAGS')
         tag_queue = [] # (token, tag)
-        for tag in tag_element:
+        for tag in tags:
             attributes = tag.attrib
             label_tokens = word_tokenize(attributes['text'])
             for i, token in enumerate(label_tokens): # seperate tags into tokens for B,I purposes
@@ -125,6 +170,7 @@ class PreProcessor:
                 tag_queue.append((token,literal_tag))
                 self.tags_seen.add(literal_tag)
 
+        labels = []
         next_token, next_tag = tag_queue.pop(0) # next_token is next token to have PHI
         for sentence in note_tokens:
             label_sentence = []
@@ -148,23 +194,22 @@ class PreProcessor:
         t_array = [] # documents x sentences x tokens
         c_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
-        i = 0
         for dir_name in data_sets:
             for filename in os.listdir(dir_name):
                 self.files_seen.append(filename)
                 tree = ET.parse(dir_name + filename) # must pass entire path
                 root = tree.getroot()
-                note_sentences, note_tokens, note_characters = self.process_text(root,i)
+                note = root.find("TEXT").text
+                note_sentences, note_tokens, note_characters = self.process_text(note)
                 s_array.append(note_sentences)
                 t_array.append(note_tokens)
                 c_array.append(note_characters)
                 if is_train_set:
                     labels.append(self.process_tags(root,note_tokens))
-                i+=1
     
         return s_array, t_array,c_array, labels
 
-    def convert_to_df(self,t_array,c_array,labels):
+    def create_df(self,t_array,c_array,labels):
         """
         Converts data to pandas df. df contains docid, unpadded sentences, and unpadded tags.
         """
@@ -184,6 +229,9 @@ class PreProcessor:
         return df
 
     def unstring_ids(self,dictionary):
+        """
+        Converts keys of dictionary to integers. Necessary because they are stored as string in JSON.
+        """
         return {int(k):v for k,v in dictionary.items()}
 
     def unstring_df_series(self,ids):
@@ -199,33 +247,8 @@ class PreProcessor:
         """
         Creates training set using df by padding sequences and returning X,y. If loading, sentences are already padded.
         """
-        if not loading: # NOT loading
-            # pad id'd sentences and tags
-            sentence_ids = df["sentence_ids"].copy()
-            if type(sentence_ids[0]) is str:
-                sentence_ids = self.unstring_df_series(sentence_ids)
-            X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=self.word2idx["PAD"])
-            df["padded_sentence"] = X.tolist()
-
-            label_ids = df["labels_ids"].copy()
-            if type(label_ids[0]) is str:
-                label_ids = self.unstring_df_series(label_ids)
-            y = pad_sequences(maxlen=None, sequences=label_ids, padding="post", value=self.tag2idx["PAD"])
-            df["padded_labels"] = y.tolist()
-
-        else: # loading
-            X = df["padded_sentence"].copy()
-            if type(X[0]) is str: # lists converted to strings when you save. must "unpack" string
-                X = np.array(self.unstring_df_series(X))
-            y = df["padded_labels"].copy()
-            if type(y[0]) is str:
-                y = np.array(self.unstring_df_series(y))
-
-            self.max_len = y.shape[1]
-
-        print("Shape of X: ", X.shape)
-        print("Shape of y: ", y.shape)
-
+        X,y = df_to_train_set(df,loading)
+        self.max_len = y.shape[1]
         return X, y
 
     def save_processed_data(self,df):
@@ -288,7 +311,7 @@ class PreProcessor:
             _, t_array,c_array,labels = self.process_data(train_folders)
             self.create_vocab_dict()
             self.create_label_dict()
-            df = self.convert_to_df(t_array,c_array,labels)
+            df = self.create_df(t_array,c_array,labels)
             X, y = self.create_train_set(df,isLoading) # modifies df, which is why it comes before sav
             self.save_processed_data(df)
         else:
