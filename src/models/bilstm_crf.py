@@ -1,7 +1,6 @@
 import tensorflow as tf
 import tensorflow_addons as tfa
 import numpy as np
-from preprocess import PreProcessor
 
 class BiLISTM_CRF(tf.keras.Model):
     def __init__(self,vocab_size,tag_size,max_len):
