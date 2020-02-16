@@ -243,7 +243,9 @@ def evaluate(system, gs, eval_class, **kwargs):
         verbose = False
 
     # Handle if two files were passed on the command line
+    print(system[0])
     if os.path.isfile(system[0]) and os.path.isfile(gs):
+        print("1")
         gs = StandoffAnnotation(gs)
         s = StandoffAnnotation(system[0])
         e = eval_class({s.id: s}, {gs.id: gs}, **kwargs)
@@ -259,6 +261,7 @@ def evaluate(system, gs, eval_class, **kwargs):
     # will be handled by the evaluation class.
     elif all([os.path.isdir(s) for s in system]) and os.path.isdir(gs):
         # Get a dict of gold standoff annotation indexed by id
+        print("2")
         for fn in os.listdir(gs):
             sa = StandoffAnnotation(gs + fn)
             gold_sa[sa.id] = sa
@@ -269,6 +272,7 @@ def evaluate(system, gs, eval_class, **kwargs):
             evaluations.append(e)
 
     else:
+        print("3")
         Exception("Must pass file.xml file.xml  or [directory/]+ directory/"
                   "on command line!")
 

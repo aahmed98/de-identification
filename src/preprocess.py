@@ -64,10 +64,10 @@ def df_to_train_set(df: pd.DataFrame, loading = False):
 
     else: # loading
         X = df["padded_sentence"].copy()
-        if type(X[0]) is str: # lists converted to strings when you save. must "unpack" string
+        if type(X.iloc[0]) is str: # lists converted to strings when you save. must "unpack" string
             X = np.array(unstring_df_series(X))
         y = df["padded_labels"].copy()
-        if type(y[0]) is str:
+        if type(y.iloc[0]) is str:
             y = np.array(unstring_df_series(y))
 
     print("Shape of X: ", X.shape)
