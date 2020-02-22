@@ -2,6 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 class BaselineModel(tf.keras.Model):
+    """
+    Single-layer RNN seq2seq.
+    """
     def __init__(self,vocab_size,tag_size,max_len):
         super(BaselineModel,self).__init__()
         self.vocab_size =  vocab_size + 1 #add 1 because of weird problem with embedding lookup. only happens on large data. CPU/GPU related I think

@@ -1,7 +1,7 @@
 from src.preprocess import PreProcessor, df_to_train_set
 from src.models.baseline import BaselineModel
-from src.models.bilstm import BiLISTM
-from src.models.bilstm_crf import BiLISTM_CRF
+from src.models.bilstm import BiLSTM
+from src.models.bilstm_crf import BiLSTM_CRF
 from .visualization import sample_output
 from .train import train_CRF
 from random import randint
@@ -15,7 +15,11 @@ import xml.etree.ElementTree as ET
 
 from typing import NamedTuple, List
 
+
 class Dataset(NamedTuple):
+    """
+    Interface for accessing data folders.
+    """
     title: str
     preprocessed_folder: str
     raw_folders: List[str]
@@ -42,17 +46,21 @@ DATASETS = [SAMPLE_DATA,GOLD_1,GOLD_FULL]
 
 def predict_document(model,docid,df):
     """
+    Given a model, predict the PHI for all the sentences in docid (docid must exist in df)
     df contains all sentences of docid.
     """
     unique_docids = df["docid"].unique()
     assert docid in unique_docids, "DocID not in DataFrame"
-    doc_sentences = df.groupby(by="docid").get_group(docid) # dataframe
-    print(doc_sentences)
-    X,_ = df_to_train_set(doc_sentences,True)
+    doc_df = df.groupby(by="docid").get_group(docid) # dataframe
+    print(doc_df)
+    X,_ = df_to_train_set(doc_df,True)
     predictions = tf.argmax(model(X),axis=2).numpy()
-    return predictions, doc_sentences
+    return predictions, doc_df
 
 def test(model,test_inputs,test_labels,pp,df,checkpoint = None,manager= None):
+    """
+    Predicts the PHI for all the documents in a DataFrame. Writes them to evaluation_data in i2b2 format.
+    """
     if checkpoint is not None and manager is not None:
         print("Loading checkpoint...")
         checkpoint.restore(manager.latest_checkpoint)
@@ -69,21 +77,13 @@ def test(model,test_inputs,test_labels,pp,df,checkpoint = None,manager= None):
         xml_doc = bio_to_i2d2(doc_df,doc_labels,note)
         ET.ElementTree(xml_doc).write("evaluation_data/" + model.title + "/"+ docid+".xml")
 
-    # tree = ET.parse(SAMPLE_DATA.raw_folders[0] + "320-01.xml") # must pass entire path
-    # root = tree.getroot()
-    # note = root.find('TEXT').text
-    # predictions = predict_document(model,'320-01',df)
-    # doc_labels = get_label_positions(df,'320-01',predictions,pp.idx2tag)
-    # # print(doc_labels)
-    # xml_doc = bio_to_i2d2(df,doc_labels,note)
-    # ET.ElementTree(xml_doc).write("320-01.xml")
-
-    # for _ in range(10):
-    #     sample_output(model,test_inputs,test_labels,pp,df)
     for i in [43,105]:
         sample_output(model,test_inputs,test_labels,pp,df,i)
 
 def main():
+    """
+    Driver code.
+    """
     # LOAD DATA
     data = DATASETS[0]
     pp = PreProcessor(data.title) # PreProcesser attached to data. Contains dictionaries, max_len, vocab_size, etc.
@@ -93,7 +93,7 @@ def main():
     print("max length: ",pp.max_len)
     
     # CREATE MODEL AND CHECKPOINTS
-    # model = BiLISTM_CRF(pp.vocab_size,pp.tag_size,pp.max_len)
+    # model = BiLSTM_CRF(pp.vocab_size,pp.tag_size,pp.max_len)
     model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
     checkpoint_dir = 'models/checkpoints/' + model.title + '/' 
     if not os.path.exists(checkpoint_dir):

@@ -243,7 +243,6 @@ def evaluate(system, gs, eval_class, **kwargs):
         verbose = False
 
     # Handle if two files were passed on the command line
-    print(system[0])
     if os.path.isfile(system[0]) and os.path.isfile(gs):
         print("1")
         gs = StandoffAnnotation(gs)

@@ -154,9 +154,8 @@ class PreProcessor:
 
     def process_tags(self,root,note_tokens):
         """
-        Processes tags for a document. Uses BIO system presented in Deep Learning paper.
+        Processes tags for a document. Uses BIO system common in NER.
         """
-        
         tags = root.find('TAGS')
         tag_queue = [] # (token, tag)
         for tag in tags:
@@ -171,16 +170,16 @@ class PreProcessor:
                 self.tags_seen.add(literal_tag)
 
         labels = []
-        next_token, next_tag = tag_queue.pop(0) # next_token is next token to have PHI
+        next_tag_token, next_tag = tag_queue.pop(0) # next_token is next token to have PHI
         for sentence in note_tokens:
             label_sentence = []
             for token in sentence:
-                if next_token != token:
+                if next_tag_token != token:
                     label_sentence.append('O')
                 else:
                     label_sentence.append(next_tag)
                     if len(tag_queue) > 0:
-                        next_token, next_tag = tag_queue.pop(0)  
+                        next_tag_token, next_tag = tag_queue.pop(0)  
             labels.append(label_sentence)
 
         return labels
