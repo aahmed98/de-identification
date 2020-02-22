@@ -1,9 +1,12 @@
 import tensorflow as tf
 import numpy as np
 
-class BiLISTM(tf.keras.Model):
+class BiLSTM(tf.keras.Model):
+    """
+    BiLSTM seq2seq.
+    """
     def __init__(self,vocab_size,tag_size,max_len):
-        super(BiLISTM,self).__init__()
+        super(BiLSTM,self).__init__()
         self.vocab_size =  vocab_size + 1 #add 1 because of weird problem with embedding lookup. only happens on large data. CPU/GPU related I think
         self.tag_size = tag_size
         self.max_len = max_len

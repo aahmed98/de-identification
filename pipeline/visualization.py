@@ -2,8 +2,13 @@ from random import randint
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
+from xml.etree.ElementTree import tostring
+from xml.dom import minidom
 
 def sample_output(model, train_inputs, train_labels, pp, df=None,rand_idx = None):
+    """
+    Samples model(document) using fancyprint.
+    """
     if rand_idx is None:
         n = len(train_inputs)
         rand_idx = randint(0,n)
@@ -62,3 +67,12 @@ def loss_plot(losses,title):
     plt.title(title)
     plt.savefig(title+'.png')
     plt.close()
+
+
+def prettify(elem):
+    """
+    Return a pretty-printed XML string for the Element.
+    """
+    rough_string = tostring(elem, 'utf-8')
+    reparsed = minidom.parseString(rough_string)
+    return reparsed.toprettyxml(indent="  ")

@@ -2,9 +2,12 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 import numpy as np
 
-class BiLISTM_CRF(tf.keras.Model):
+class BiLSTM_CRF(tf.keras.Model):
+    """
+    CRF stacked on top of BILSTM.
+    """
     def __init__(self,vocab_size,tag_size,max_len):
-        super(BiLISTM_CRF,self).__init__()
+        super(BiLSTM_CRF,self).__init__()
         self.vocab_size =  vocab_size + 1 #add 1 because of weird problem with embedding lookup. only happens on large data. CPU/GPU related I think
         self.tag_size = tag_size
         self.max_len = max_len
@@ -38,7 +41,8 @@ class BiLISTM_CRF(tf.keras.Model):
     def predict(self,inputs):
         """
         Inputs: (batch_size, max_len)
-        Output: (batch_size, max_len, tag_size) 
+        Output: (batch_size, max_len, tag_size)
+        Uses virterbi algorithm to find most likely sequence of states (labels). 
         """
         embeddings = tf.nn.embedding_lookup(self.E,inputs) # (batch_size, max_len, embedding_size)
         outputs = self.bi_lstm(embeddings) # (batch_size, max_len, 2*rnn_size)

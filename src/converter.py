@@ -3,6 +3,10 @@ from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 from xml.dom import minidom
 
 def get_label_positions(labels,idx2tag):
+    """
+    Given a list of label indices and an idx2tag dictionary, returns a list of tuples of the form
+    (row, cols, tag) for each tag. Cols is a list because tag can span multiple tokens.
+    """
     true_labels = np.where(np.logical_and(labels != 0,labels != 1))
     doc_labels = []
     prev = None
@@ -32,6 +36,9 @@ def bio_to_i2d2(df,doc_labels,note):
     df: DataFrame with SINGLE document
     labels: Indices of labels: (row,[cols])
     note: Raw note
+
+    Returns:
+    Predicted document in i2b2 format. Used for testing.
     """
     # Add tag elements to i2d2_tags list
     i2d2_tags = []
@@ -48,6 +55,8 @@ def bio_to_i2d2(df,doc_labels,note):
         if not phi_text == note_phi:
             print("WARNING: mismatch between raw note and database. raw: "+note_phi + " DB: "+phi_text)
         print("Start =",start, "End =",end,"Text =",note_phi, "Type =",tag)
+
+        # i2b2 formatting
         xml_tag = Element(tag, 
         {
             'id':"P"+str(i),
@@ -66,11 +75,3 @@ def bio_to_i2d2(df,doc_labels,note):
     for tag in i2d2_tags:
         SubElement(tags_child,tag.tag,attrib=tag.attrib)
     return root  
-
-def prettify(elem):
-    """
-    Return a pretty-printed XML string for the Element.
-    """
-    rough_string = tostring(elem, 'utf-8')
-    reparsed = minidom.parseString(rough_string)
-    return reparsed.toprettyxml(indent="  ")
