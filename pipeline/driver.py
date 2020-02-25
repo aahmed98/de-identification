@@ -26,19 +26,19 @@ class Dataset(NamedTuple):
 
 SAMPLE_DATA = Dataset(
     title = "sample_data",
-    preprocessed_folder = "data/preprocessed/sample_data/",
+    preprocessed_folder = "../data/preprocessed/sample_data/",
     raw_folders = ["docs/Track1-de-indentification/PHI/"]
 )
 
 GOLD_1 = Dataset(
     title = "gold_1",
-    preprocessed_folder = "data/preprocessed/gold_1/",
-    raw_folders = ["data/raw/training-PHI-Gold-Set1/"]
+    preprocessed_folder = "../data/preprocessed/gold_1/",
+    raw_folders = ["../data/raw/training-PHI-Gold-Set1/"]
 )
 
 GOLD_FULL = Dataset(
     title = "gold_full",
-    preprocessed_folder = "data/preprocessed/gold_full/",
+    preprocessed_folder = "../data/preprocessed/gold_full/",
     raw_folders = ["../data/raw/training-PHI-Gold-Set1/","../data/raw/training-PHI-Gold-Set2/"]
 )
 

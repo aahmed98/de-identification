@@ -229,7 +229,7 @@ class PreProcessor:
                 self.tags_seen.add(literal_tag)
 
         num_tags_actual = len(tag_queue)
-        print(tag_queue)
+        # print(tag_queue)
 
         num_tags_counted = 0
         labels = []
@@ -238,7 +238,7 @@ class PreProcessor:
         for sentence in note_tokens:
             label_sentence = []
             for token in sentence:
-                if printing == True:
+                if printing:
                     print(next_tag_token)
                     print(token)
                     print(next_tag)
@@ -250,9 +250,10 @@ class PreProcessor:
                     if len(tag_queue) > 0:
                         next_tag_token, next_tag = tag_queue.pop(0)
                         if next_tag_token == "Oakley":
-                            printing = True
+                            printing = False
             if printing:
                 print(label_sentence)
+
             labels.append(label_sentence)
 
         matched = num_tags_actual == num_tags_counted
@@ -340,7 +341,7 @@ class PreProcessor:
         Saves df to csv/excel and dictionaries to json
         """
         title = self.title
-        folder = "data/preprocessed/" + title + "/"
+        folder = "../data/preprocessed/" + title + "/"
         path = folder + title
         if not os.path.exists(folder):
             os.makedirs(folder)
