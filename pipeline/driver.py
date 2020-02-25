@@ -32,13 +32,22 @@ SAMPLE_DATA = Dataset(
 
 GOLD_1 = Dataset(
     title = "gold_1",
+<<<<<<< HEAD
     preprocessed_folder = "data/preprocessed/gold_1/",
     raw_folders = ["data/raw/training-PHI-Gold-Set1/"]
+=======
+    preprocessed_folder = "",
+    raw_folders = ["../data/raw/training-PHI-Gold-Set1/"]
+>>>>>>> 023585f40d1b02c140b0cb28a4fc979ad2a8f0ae
 )
 
 GOLD_FULL = Dataset(
     title = "gold_full",
+<<<<<<< HEAD
     preprocessed_folder = "data/preprocessed/gold_full/",
+=======
+    preprocessed_folder = "",
+>>>>>>> 023585f40d1b02c140b0cb28a4fc979ad2a8f0ae
     raw_folders = ["../data/raw/training-PHI-Gold-Set1/","../data/raw/training-PHI-Gold-Set2/"]
 )
 
