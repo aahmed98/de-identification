@@ -4,9 +4,12 @@ import os
 import xml.etree.ElementTree as ET
 import pandas as pd
 import numpy as np
-from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize, wordpunct_tokenize, RegexpTokenizer
 from keras.preprocessing.sequence import pad_sequences
+import re
 import json
+import wordninja
+from progressbar import ProgressBar
 
 PAD_IDX = 0
 UNK_IDX = NON_PHI_IDX = 1
@@ -84,6 +87,10 @@ class PreProcessor:
         self.max_len = 0
         self.title = title #title of folder to save data to
 
+        self.tokenizer = RegexpTokenizer(r"[a-zA-Z0-9]+|[^a-zA-Z0-9\s]+") # modified tokenizer to exclude underscores as word characters
+
+        self.tag_errors = []
+
     def create_vocab_dict(self):
         """
         Creates word2idx dictionary: word -> index
@@ -110,6 +117,36 @@ class PreProcessor:
 
         self.tag_size = len(self.tag2idx.keys())
 
+    def my_tokenize(self,text):
+        nltk_tokens = self.tokenizer.tokenize(text)
+        # print("NLTK: ",nltk_tokens)
+        new_tokens = []
+        for token in nltk_tokens:
+            # capital_split = re.findall('[a-zA-z]+[A-Z][a-zA-z]+', token) # identifies words that are connected without space
+            capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",token)
+            # capital_split = wordninja.split(token)
+            letter_ages = re.findall(r"\d+[a-zA-Z]+",token) # identifies ages of the form "78yo"
+            if len(capital_split) > 1:
+                #print("token: ",token)
+                #print("capital_split: ",capital_split)
+                word_split = []
+                word_split.append(capital_split[0] + capital_split[1][0])
+                word_split.append(capital_split[1][1:]+capital_split[2])
+                #print("word split: ",word_split)
+                for word in word_split:
+                    new_tokens.append(word)
+            elif len(letter_ages) > 0:
+                #print("token: ",token)
+                #print("letter_ages: ",letter_ages)
+                num_char_split = re.findall(r"\d+|\D+",letter_ages[0])
+                #print("num_char_split: ",num_char_split)
+                for word in num_char_split:
+                    new_tokens.append(word)
+            else:
+                new_tokens.append(token)
+        # print("Updated: ",new_tokens)
+        return new_tokens
+
     def process_characters(self,note,tokens):
         """
         Gets the character range of each token.
@@ -122,19 +159,41 @@ class PreProcessor:
         current_token = ""
         characters = [] # list of tuples (start,end) of each token
         pointer = 0
+
+        # printing = False
+
+        quotes = False
         for i in range(len(tokens)): #sentences
             sentence_chars = []
             for j in range(len(tokens[i])): #tokens
                 current_token = tokens[i][j]
+
+                # if current_token == "Menopause":
+                #     printing = True
+
+                # edge cases
+                if current_token in {"``","''"}:
+                    current_token = '"'
+                    quotes = True
                 window_size = len(current_token)
+                
                 while True:
                     note_window = note[pointer:pointer+window_size]
+
+                    # if printing:
+                    #     print(current_token)
+                    #     print(note_window)
+
                     if note_window == current_token:
-                        #print("matched! ",current_token, " range: (",pointer,",",pointer+window_size,")")
                         sentence_chars.append((pointer,pointer+window_size))
-                        pointer += 1
+                        pointer += window_size
                         break
-                    pointer += 1
+                    elif quotes and note[pointer:pointer+window_size+1] in {"``","''"}:
+                        window_size += 1
+                        sentence_chars.append((pointer,pointer+window_size))
+                        pointer += window_size
+                        break
+                    pointer += 1 # new sentence
             characters.append(sentence_chars)
         return characters
 
@@ -144,7 +203,7 @@ class PreProcessor:
         """
         #TODO: some text has dashes that are not tokenized. but the labels don't have those dashes.
         note_sentences = sent_tokenize(note) # sentences
-        note_tokens = list(map(lambda x: word_tokenize(x),note_sentences)) # sentences x tokens
+        note_tokens = list(map(lambda x: self.my_tokenize(x),note_sentences)) # sentences x tokens
         note_characters = self.process_characters(note,note_tokens) # sentences x tokens
         max_len = max(len(sent) for sent in note_tokens)
         if max_len > self.max_len:
@@ -160,7 +219,7 @@ class PreProcessor:
         tag_queue = [] # (token, tag)
         for tag in tags:
             attributes = tag.attrib
-            label_tokens = word_tokenize(attributes['text'])
+            label_tokens = self.my_tokenize(attributes['text'])
             for i, token in enumerate(label_tokens): # seperate tags into tokens for B,I purposes
                 if i == 0:
                     literal_tag ='B-'+attributes['TYPE']
@@ -169,33 +228,55 @@ class PreProcessor:
                 tag_queue.append((token,literal_tag))
                 self.tags_seen.add(literal_tag)
 
+        num_tags_actual = len(tag_queue)
+        print(tag_queue)
+
+        num_tags_counted = 0
         labels = []
         next_tag_token, next_tag = tag_queue.pop(0) # next_token is next token to have PHI
+        printing = False
         for sentence in note_tokens:
             label_sentence = []
             for token in sentence:
+                if printing == True:
+                    print(next_tag_token)
+                    print(token)
+                    print(next_tag)
                 if next_tag_token != token:
                     label_sentence.append('O')
                 else:
                     label_sentence.append(next_tag)
+                    num_tags_counted += 1
                     if len(tag_queue) > 0:
-                        next_tag_token, next_tag = tag_queue.pop(0)  
+                        next_tag_token, next_tag = tag_queue.pop(0)
+                        if next_tag_token == "Oakley":
+                            printing = True
+            if printing:
+                print(label_sentence)
             labels.append(label_sentence)
 
-        return labels
+        matched = num_tags_actual == num_tags_counted
+        # asserts that all tags in tag queue were processed correctly
+        # print("Matched? ",matched) # "Mismatch. Actual #: "+ str(num_tags_actual) + ", Counted #: " + str(num_tags_counted)
+        if printing:
+            print(labels)
+        return labels, matched 
 
     def process_data(self,data_sets, is_train_set: bool = True):
         """
         Creates sentence and token vectors for all the files in a folder.
         """
         print("Preprocessing data...")
+        pbar = ProgressBar()
+
         s_array = [] # documents x sentences
         t_array = [] # documents x sentences x tokens
         c_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
-        for dir_name in data_sets:
+        for dir_name in pbar(data_sets):
             for filename in os.listdir(dir_name):
                 self.files_seen.append(filename)
+                # print(dir_name + filename)
                 tree = ET.parse(dir_name + filename) # must pass entire path
                 root = tree.getroot()
                 note = root.find("TEXT").text
@@ -204,8 +285,12 @@ class PreProcessor:
                 t_array.append(note_tokens)
                 c_array.append(note_characters)
                 if is_train_set:
-                    labels.append(self.process_tags(root,note_tokens))
-    
+                    tags, matched = self.process_tags(root,note_tokens) 
+                    labels.append(tags)
+                    if not matched:
+                        self.tag_errors.append(filename)
+
+        print("# of Tag Processing Errors: ",len(self.tag_errors))
         return s_array, t_array,c_array, labels
 
     def create_df(self,t_array,c_array,labels):
@@ -255,7 +340,7 @@ class PreProcessor:
         Saves df to csv/excel and dictionaries to json
         """
         title = self.title
-        folder = title + "/"
+        folder = "data/preprocessed/" + title + "/"
         path = folder + title
         if not os.path.exists(folder):
             os.makedirs(folder)

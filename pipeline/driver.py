@@ -32,13 +32,13 @@ SAMPLE_DATA = Dataset(
 
 GOLD_1 = Dataset(
     title = "gold_1",
-    preprocessed_folder = "",
-    raw_folders = ["../data/raw/training-PHI-Gold-Set1/"]
+    preprocessed_folder = "data/preprocessed/gold_1/",
+    raw_folders = ["data/raw/training-PHI-Gold-Set1/"]
 )
 
 GOLD_FULL = Dataset(
     title = "gold_full",
-    preprocessed_folder = "",
+    preprocessed_folder = "data/preprocessed/gold_full/",
     raw_folders = ["../data/raw/training-PHI-Gold-Set1/","../data/raw/training-PHI-Gold-Set2/"]
 )
 
@@ -85,26 +85,28 @@ def main():
     Driver code.
     """
     # LOAD DATA
-    data = DATASETS[0]
+    data = DATASETS[1]
+    isLoading = False
     pp = PreProcessor(data.title) # PreProcesser attached to data. Contains dictionaries, max_len, vocab_size, etc.
-    X,y,df = pp.get_data(data.preprocessed_folder,isLoading = True)
-    # raw_folder = data.raw_folders[0]
-    # X,y,df = pp.get_data(train_folder,False)
+    if isLoading:
+        X,y,df = pp.get_data(data.preprocessed_folder,isLoading = True)
+    else:
+        X,y,df = pp.get_data(data.raw_folders,isLoading = False)
     print("max length: ",pp.max_len)
     
     # CREATE MODEL AND CHECKPOINTS
     # model = BiLSTM_CRF(pp.vocab_size,pp.tag_size,pp.max_len)
-    model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
-    checkpoint_dir = 'models/checkpoints/' + model.title + '/' 
-    if not os.path.exists(checkpoint_dir):
-        os.makedirs(checkpoint_dir)
-    checkpoint = tf.train.Checkpoint(model=model)
-    manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
+    # model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
+    # checkpoint_dir = 'models/checkpoints/' + model.title + '/' 
+    # if not os.path.exists(checkpoint_dir):
+    #     os.makedirs(checkpoint_dir)
+    # checkpoint = tf.train.Checkpoint(model=model)
+    # manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 
-    # TRAIN AND TEST
-    # train(model,X,y,epochs=100,sample_interval=10,manager=manager,pp=pp)
-    # train_CRF(model,X,y,epochs=100,sample_interval=10,pp=pp)
-    test(model,X,y,pp,df,checkpoint,manager)
+    # # TRAIN AND TEST
+    # # train(model,X,y,epochs=100,sample_interval=10,manager=manager,pp=pp)
+    # # train_CRF(model,X,y,epochs=100,sample_interval=10,pp=pp)
+    # test(model,X,y,pp,df,checkpoint,manager)
 
 if __name__ == "__main__":
     main()
