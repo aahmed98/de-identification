@@ -1,2 +1,8 @@
-226-02: "inhartsville"
-220-01: Borderline... missing B-Date
+226-02: "inhartsville". Requires syntactic parsing.
+220-01: Borderline... missing B-Date.  # RESOLVED
+320-01: Date is adjacent to number with no whitespace. Gets matched to downstream text with same 
+next_tag_token, but is the incorrect one. Should error check.
+326-03: Multiple capital splits (TThSa). Must recurse over second compound word. # RESOLVED
+332-05: Capitals next to each other fml
+
+My tokenization results in 10x fewer preprocessing errors than word_tokenize.

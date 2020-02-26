@@ -112,39 +112,42 @@ class PreProcessor:
         self.tag2idx = {tag: index + 2 for index,tag in enumerate(self.tags_seen)}
         self.tag2idx["PAD"] = PAD_IDX # PAD
         self.tag2idx["O"] = NON_PHI_IDX # non-PHI
-        
         self.idx2tag = {index: tag for tag,index in self.tag2idx.items()}
-
         self.tag_size = len(self.tag2idx.keys())
 
     def my_tokenize(self,text):
+        """
+        Custom tokenization function. Handles several edge cases observed in training data.
+        """
+        return word_tokenize(text)
         nltk_tokens = self.tokenizer.tokenize(text)
-        # print("NLTK: ",nltk_tokens)
         new_tokens = []
         for token in nltk_tokens:
-            # capital_split = re.findall('[a-zA-z]+[A-Z][a-zA-z]+', token) # identifies words that are connected without space
-            capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",token)
-            # capital_split = wordninja.split(token)
-            letter_ages = re.findall(r"\d+[a-zA-Z]+",token) # identifies ages of the form "78yo"
-            if len(capital_split) > 1:
-                #print("token: ",token)
-                #print("capital_split: ",capital_split)
-                word_split = []
-                word_split.append(capital_split[0] + capital_split[1][0])
-                word_split.append(capital_split[1][1:]+capital_split[2])
-                #print("word split: ",word_split)
-                for word in word_split:
-                    new_tokens.append(word)
-            elif len(letter_ages) > 0:
-                #print("token: ",token)
-                #print("letter_ages: ",letter_ages)
-                num_char_split = re.findall(r"\d+|\D+",letter_ages[0])
-                #print("num_char_split: ",num_char_split)
+            capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",token) # words connected without space (stageFour)
+            num_chars = re.findall(r"\d+[a-zA-Z]+",token) # numbers connected to words (e.g. 78yom)
+            char_num = re.findall(r"[a-zA-Z]+\d+",token)
+            if len(capital_split) > 1: # two words are connected without a space
+                new_tokens.append(capital_split[0] + capital_split[1][0]) # first word
+                second_word = capital_split[1][1:]+capital_split[2]
+                second_word_capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",second_word)
+                while len(second_word_capital_split) > 1: # recurse over second word
+                    print("Recursing! Original word: ",token, "Second compound word: ",second_word)
+                    new_tokens.append(second_word_capital_split[0] + second_word_capital_split[1][0])
+                    second_word = second_word_capital_split[1][1:]+second_word_capital_split[2]
+                    second_word_capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",second_word)
+                # new_tokens.append(capital_split[1][1:]+capital_split[2]) # second word
+                new_tokens.append(second_word)
+            elif len(num_chars) > 0: # number followed by letters
+                num_char_split = re.findall(r"\d+|\D+",num_chars[0]) # splits numbers from letters
                 for word in num_char_split:
                     new_tokens.append(word)
+            elif len(char_num) > 0:
+                char_num_split = re.findall(r"\d+|\D+",char_num[0]) # splits letters 
+                for word in char_num_split:
+                    new_tokens.append(word)
+                # print(char_num_split)
             else:
                 new_tokens.append(token)
-        # print("Updated: ",new_tokens)
         return new_tokens
 
     def process_characters(self,note,tokens):
@@ -159,31 +162,17 @@ class PreProcessor:
         current_token = ""
         characters = [] # list of tuples (start,end) of each token
         pointer = 0
-
-        # printing = False
-
         quotes = False
         for i in range(len(tokens)): #sentences
             sentence_chars = []
             for j in range(len(tokens[i])): #tokens
                 current_token = tokens[i][j]
-
-                # if current_token == "Menopause":
-                #     printing = True
-
-                # edge cases
-                if current_token in {"``","''"}:
+                if current_token in {"``","''"}: # weird edge cases with quotations
                     current_token = '"'
                     quotes = True
                 window_size = len(current_token)
-                
                 while True:
                     note_window = note[pointer:pointer+window_size]
-
-                    # if printing:
-                    #     print(current_token)
-                    #     print(note_window)
-
                     if note_window == current_token:
                         sentence_chars.append((pointer,pointer+window_size))
                         pointer += window_size
@@ -211,7 +200,7 @@ class PreProcessor:
         self.words_seen.update([token for sent in note_tokens for token in sent]) # add tokens to vocab set
         return note_sentences, note_tokens, note_characters
 
-    def process_tags(self,root,note_tokens):
+    def process_tags(self,root,note_tokens,filename = None):
         """
         Processes tags for a document. Uses BIO system common in NER.
         """
@@ -235,32 +224,63 @@ class PreProcessor:
         labels = []
         next_tag_token, next_tag = tag_queue.pop(0) # next_token is next token to have PHI
         printing = False
+        if filename == "400-05.xml":
+            printing = False
+        consecutive = False # checks for errors in preprocessing
+        old_tag, old_tag_token = None, None
         for sentence in note_tokens:
+            # if printing:
+            #     print(tag_queue, "\n")
             label_sentence = []
             for token in sentence:
                 if printing:
-                    print(next_tag_token)
-                    print(token)
-                    print(next_tag)
+                    print("next tag token: ",next_tag_token)
+                    print("current token: ",token)
                 if next_tag_token != token:
+                    if consecutive: # wrong label
+                        if printing:
+                            print("Sentence: ",sentence)
+                            print("Next Tag Token: ",next_tag_token)
+                            print("Next Token: ",token)
+                            print("Old Tag Token: ",old_tag_token)
+                        if len(label_sentence) > 0: # wrong label is in current sentence
+                            label_sentence.pop()
+                            label_sentence.append('O')
+                        else: # wrong label was in previous sentence
+                            labels[-1].pop()
+                            labels[-1].append('O')
+                        num_tags_counted -= 1
+                        tag_queue.insert(0,(next_tag_token,next_tag)) # insert I-___ back into queue
+                        next_tag, next_tag_token = old_tag, old_tag_token # reset next_tag to B-___
+                        consecutive = False
                     label_sentence.append('O')
                 else:
+                    if printing:
+                        print("Appending",next_tag,"to the tag list")
                     label_sentence.append(next_tag)
                     num_tags_counted += 1
                     if len(tag_queue) > 0:
+                        old_tag, old_tag_token = next_tag, next_tag_token
                         next_tag_token, next_tag = tag_queue.pop(0)
-                        if next_tag_token == "Oakley":
-                            printing = False
-            if printing:
-                print(label_sentence)
+                        if printing:
+                            print(next_tag_token,next_tag)
+                        if old_tag[1:] == next_tag[1:] and old_tag[0] == "B" and next_tag[0] == "I": # consecutive tags
+                            consecutive = True
+                        else:
+                            consecutive = False
+                    else:
+                        break
 
             labels.append(label_sentence)
+
+        # print(labels)
 
         matched = num_tags_actual == num_tags_counted
         # asserts that all tags in tag queue were processed correctly
         # print("Matched? ",matched) # "Mismatch. Actual #: "+ str(num_tags_actual) + ", Counted #: " + str(num_tags_counted)
         if printing:
             print(labels)
+
         return labels, matched 
 
     def process_data(self,data_sets, is_train_set: bool = True):
@@ -277,7 +297,7 @@ class PreProcessor:
         for dir_name in pbar(data_sets):
             for filename in os.listdir(dir_name):
                 self.files_seen.append(filename)
-                # print(dir_name + filename)
+                # print(filename)
                 tree = ET.parse(dir_name + filename) # must pass entire path
                 root = tree.getroot()
                 note = root.find("TEXT").text
@@ -286,12 +306,13 @@ class PreProcessor:
                 t_array.append(note_tokens)
                 c_array.append(note_characters)
                 if is_train_set:
-                    tags, matched = self.process_tags(root,note_tokens) 
+                    tags, matched = self.process_tags(root,note_tokens, filename) 
                     labels.append(tags)
                     if not matched:
                         self.tag_errors.append(filename)
 
         print("# of Tag Processing Errors: ",len(self.tag_errors))
+        print("Files with errors: ",self.tag_errors)
         return s_array, t_array,c_array, labels
 
     def create_df(self,t_array,c_array,labels):
