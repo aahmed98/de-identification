@@ -85,8 +85,8 @@ def main():
     Driver code.
     """
     # LOAD DATA
-    data = DATASETS[1]
-    isLoading = False
+    data = DATASETS[2]
+    isLoading = True
     pp = PreProcessor(data.title) # PreProcesser attached to data. Contains dictionaries, max_len, vocab_size, etc.
     if isLoading:
         X,y,df = pp.get_data(data.preprocessed_folder,isLoading = True)

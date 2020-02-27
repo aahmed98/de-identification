@@ -8,8 +8,9 @@ from nltk.tokenize import word_tokenize, sent_tokenize, wordpunct_tokenize, Rege
 from keras.preprocessing.sequence import pad_sequences
 import re
 import json
-import wordninja
+import ast
 from progressbar import ProgressBar
+import time
 
 PAD_IDX = 0
 UNK_IDX = NON_PHI_IDX = 1
@@ -38,13 +39,27 @@ def unstring_ids(dictionary):
     """
     return {int(k):v for k,v in dictionary.items()}
 
-def unstring_df_series(df_column):
+def unstring_df_series(df_column: pd.Series):
     """
     Unstrings a df series. Needed when you load data.
     """
+    start = time.time()
+    unstrung = [ast.literal_eval(sentence) for sentence in df_column]
+    end = time.time()
+    print("List comprehension time: ",end-start)
+
+    start = time.time()
     temp = []
     for sentence in df_column:
-        temp.append(eval(sentence))
+        temp.append(ast.literal_eval(sentence))
+    end = time.time()
+    print("For loop time: ",end-start)
+
+    start = time.time()
+    unstrung = list(map(lambda x: ast.literal_eval(x),df_column))
+    end = time.time()
+    print("Map time: ",end-start)
+
     return temp
 
 def df_to_train_set(df: pd.DataFrame, loading = False):
@@ -119,7 +134,6 @@ class PreProcessor:
         """
         Custom tokenization function. Handles several edge cases observed in training data.
         """
-        return word_tokenize(text)
         nltk_tokens = self.tokenizer.tokenize(text)
         new_tokens = []
         for token in nltk_tokens:
@@ -131,7 +145,7 @@ class PreProcessor:
                 second_word = capital_split[1][1:]+capital_split[2]
                 second_word_capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",second_word)
                 while len(second_word_capital_split) > 1: # recurse over second word
-                    print("Recursing! Original word: ",token, "Second compound word: ",second_word)
+                    # print("Recursing! Original word: ",token, "Second compound word: ",second_word)
                     new_tokens.append(second_word_capital_split[0] + second_word_capital_split[1][0])
                     second_word = second_word_capital_split[1][1:]+second_word_capital_split[2]
                     second_word_capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",second_word)
