@@ -105,6 +105,22 @@ class PreProcessor:
         self.tokenizer = RegexpTokenizer(r"[a-zA-Z0-9]+|[^a-zA-Z0-9\s]+") # modified tokenizer to exclude underscores as word characters
 
         self.tag_errors = []
+    
+    def replace_unknowns(self,tokens):
+        """
+        Replaces unseen words in test set with 'UNK' token
+        """
+        sentences = []
+        for i in range(len(tokens)):
+            sentence = []
+            for j in range(len(tokens[i])):
+                current_token = tokens[i][j]
+                if current_token not in self.words_seen:
+                    sentence.append("UNK")
+                else:
+                    sentence.append(current_token)
+            sentences.append(sentence)
+        return sentences
 
     def create_vocab_dict(self):
         """
@@ -200,7 +216,7 @@ class PreProcessor:
             characters.append(sentence_chars)
         return characters
 
-    def process_text(self,note):
+    def process_text(self,note, isTrainSet = True):
         """
         Processes the actual note. Tokenizes, adds to vocab, returns (1xsentences),(1xsentencesxtokens)
         """
@@ -211,7 +227,9 @@ class PreProcessor:
         max_len = max(len(sent) for sent in note_tokens)
         if max_len > self.max_len:
             self.max_len = max_len
-        self.words_seen.update([token for sent in note_tokens for token in sent]) # add tokens to vocab set
+        if isTrainSet:
+            self.words_seen.update([token for sent in note_tokens for token in sent]) # add tokens to vocab set
+
         return note_sentences, note_tokens, note_characters
 
     def process_tags(self,root,note_tokens,filename = None):
@@ -297,7 +315,7 @@ class PreProcessor:
 
         return labels, matched 
 
-    def process_data(self,data_sets, is_train_set: bool = True):
+    def process_data(self,data_sets, isTrainSet: bool = True):
         """
         Creates sentence and token vectors for all the files in a folder.
         """
@@ -315,15 +333,16 @@ class PreProcessor:
                 tree = ET.parse(dir_name + filename) # must pass entire path
                 root = tree.getroot()
                 note = root.find("TEXT").text
-                note_sentences, note_tokens, note_characters = self.process_text(note)
+                note_sentences, note_tokens, note_characters = self.process_text(note, isTrainSet)
+                tags, matched = self.process_tags(root,note_tokens, filename) 
+                labels.append(tags)
+                if not matched:
+                    self.tag_errors.append(filename)
+                if not isTrainSet:
+                    note_tokens = self.replace_unknowns(note_tokens)
                 s_array.append(note_sentences)
                 t_array.append(note_tokens)
                 c_array.append(note_characters)
-                if is_train_set:
-                    tags, matched = self.process_tags(root,note_tokens, filename) 
-                    labels.append(tags)
-                    if not matched:
-                        self.tag_errors.append(filename)
 
         print("# of Tag Processing Errors: ",len(self.tag_errors))
         print("Files with errors: ",self.tag_errors)
@@ -421,6 +440,42 @@ class PreProcessor:
                     self.idx2tag = self.unstring_ids(json.load(f))
         return df
 
+    def load_test_data(self,test_dir_name):
+        """
+        Directory contains csv file and dictionaries as json.
+        """
+        print("Loading preprocessed test data...")
+        df = None
+        if not test_dir_name.endswith('/'):
+            dir_name = dir_name + "/"
+        for filename in os.listdir(test_dir_name):
+            path = dir_name + filename
+            if filename.endswith('.csv'):
+                df = pd.read_csv(path)
+        return df
+
+    def save_test_data(self, title, df):
+        """
+        Saves df to csv/excel and dictionaries to json
+        """
+        folder = "../data/preprocessed/" + title + "/"
+        path = folder + title
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        if os.path.exists(path+'.xlsx'):
+            os.remove(path+'.xlsx')
+        df.to_excel(path+'.xlsx', sheet_name='PHI '+title)
+        df.to_csv(path+'.csv')
+        with open(path+'_word2idx.json','w') as f:
+            json.dump(self.word2idx,f)
+        with open(path+'_tag2idx.json','w') as f:
+            json.dump(self.tag2idx,f)
+        with open(path+'_idx2word.json','w') as f:
+            json.dump(self.idx2word,f)
+        with open(path+'_idx2tag.json','w') as f:
+            json.dump(self.idx2tag,f)
+
+
     def get_data(self,train_folders,isLoading = False):
         """
         All-purpose function to get data.
@@ -428,7 +483,7 @@ class PreProcessor:
         !isLoading: rain_folders is LIST of paths to dirs that contain i2b2 data 
         """
         if not isLoading:
-            _, t_array,c_array,labels = self.process_data(train_folders)
+            _, t_array,c_array,labels = self.process_data(train_folders, isTrainSet=True)
             self.create_vocab_dict()
             self.create_label_dict()
             df = self.create_df(t_array,c_array,labels)
@@ -439,3 +494,20 @@ class PreProcessor:
             X,y = self.create_train_set(df,isLoading) # no modification to df in loading case
         print("Preprocessing complete.")
         return X, y, df
+
+    def create_test_set(self,test_folders, isLoading = False, title = None):
+        """
+        Creates test set given test folders.
+        """
+        if not isLoading:
+            _, t_array,c_array,labels = self.process_data(test_folders,isTrainSet=False)
+            df = self.create_df(t_array,c_array,labels)
+            X, y = df_to_train_set(df, isLoading)
+            self.save_test_data(title,df)
+        else:
+            df = self.load_test_data(test_folders)
+            X, y = df_to_train_set(df, isLoading)
+        return X,y,df
+
+
+
