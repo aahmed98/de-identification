@@ -43,24 +43,11 @@ def unstring_df_series(df_column: pd.Series):
     """
     Unstrings a df series. Needed when you load data.
     """
-    start = time.time()
-    unstrung = [ast.literal_eval(sentence) for sentence in df_column]
-    end = time.time()
-    print("List comprehension time: ",end-start)
-
-    start = time.time()
-    temp = []
-    for sentence in df_column:
-        temp.append(ast.literal_eval(sentence))
-    end = time.time()
-    print("For loop time: ",end-start)
-
-    start = time.time()
-    unstrung = list(map(lambda x: ast.literal_eval(x),df_column))
-    end = time.time()
-    print("Map time: ",end-start)
-
-    return temp
+    pbar = ProgressBar()
+    unstrung = []
+    for sentence in pbar(df_column):
+        unstrung.append(ast.literal_eval(sentence))
+    return unstrung
 
 def df_to_train_set(df: pd.DataFrame, loading = False):
     """
@@ -447,9 +434,9 @@ class PreProcessor:
         print("Loading preprocessed test data...")
         df = None
         if not test_dir_name.endswith('/'):
-            dir_name = dir_name + "/"
+            test_dir_name = test_dir_name + "/"
         for filename in os.listdir(test_dir_name):
-            path = dir_name + filename
+            path = test_dir_name + filename
             if filename.endswith('.csv'):
                 df = pd.read_csv(path)
         return df
@@ -508,6 +495,3 @@ class PreProcessor:
             df = self.load_test_data(test_folders)
             X, y = df_to_train_set(df, isLoading)
         return X,y,df
-
-
-

@@ -2,11 +2,15 @@ from sklearn.utils import shuffle
 import tensorflow as tf
 from .visualization import sample_output, sample_output_CRF, fancy_print, loss_plot
 
-def train_vanilla(model, train_inputs, train_labels, batch_size = 32,epochs= 10, sample_interval = 5, pp = None, manager = None):
+def train_vanilla(model, train_inputs, train_labels, batch_size = 32,epochs= 10, sample_interval = 5, pp = None, manager = None, ckpt = None):
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
     n = len(train_inputs)
     losses = []
-    for epoch in range(epochs):
+    if manager is not None and ckpt is not None:
+        ckpt.restore(manager.latest_checkpoint)
+        if manager.latest_checkpoint:
+            print("Restored from {}".format(manager.latest_checkpoint))
+    for epoch in range(epochs):  
         print("--------- EPOCH ",epoch,"-----------")
         X, y = shuffle(train_inputs,train_labels)
         epoch_loss = 0
@@ -30,10 +34,14 @@ def train_vanilla(model, train_inputs, train_labels, batch_size = 32,epochs= 10,
     loss_plot(losses,model.title)
     sample_output(pp,model,train_inputs,train_labels)
 
-def train_CRF(model, train_inputs, train_labels, batch_size = 32,epochs= 10, sample_interval = 5, pp = None, manager = None):
+def train_CRF(model, train_inputs, train_labels, batch_size = 32,epochs= 10, sample_interval = 5, pp = None, manager = None, ckpt = None):
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
     n = len(train_inputs)
     losses = []
+    if manager is not None and ckpt is not None:
+        ckpt.restore(manager.latest_checkpoint)
+        if manager.latest_checkpoint:
+            print("Restored from {}".format(manager.latest_checkpoint))
     for epoch in range(epochs):
         print("--------- EPOCH ",epoch,"-----------")
         X, y = shuffle(train_inputs,train_labels)

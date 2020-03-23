@@ -2,6 +2,30 @@ import numpy as np
 from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 from xml.dom import minidom
 
+# dictionary for tag titles. refer to /docs
+hipaa_dic = {
+    "PATIENT": "NAME", 
+    "DOCTOR": "NAME", 
+    "USERNAME": "NAME",
+    "HOSPITAL": "LOCATION",  
+    "ORGANIZATION": "LOCATION", 
+    "STREET": "LOCATION", 
+    "CITY": "LOCATION", 
+    "STATE": "LOCATION", 
+    "COUNTRY": "LOCATION", 
+    "ZIP": "LOCATION",
+    "LOCATION-OTHER": "LOCATION",
+    "PHONE": "CONTACT", 
+    "FAX": "CONTACT", 
+    "EMAIL": "CONTACT", 
+    "URL": "CONTACT", 
+    "IPADDRESS": "CONTACT",
+    "MEDICALRECORD": "ID", 
+    "HEALTHPLAN": "ID",
+    "BIOID": "ID",
+    "IDNUM": "ID"
+}
+
 def get_label_positions(labels,idx2tag):
     """
     Given a list of label indices and an idx2tag dictionary, returns a list of tuples of the form
@@ -41,28 +65,42 @@ def bio_to_i2d2(df,doc_labels,note):
     Predicted document in i2b2 format. Used for testing.
     """
     # Add tag elements to i2d2_tags list
+#     print(doc_labels)
     i2d2_tags = []
     characters = df["characters"]
     tokens = df["sentence"]
     for i,(row,cols,tag) in enumerate(doc_labels):
         row_chars = eval(characters.iloc[row])
         row_tokens = eval(tokens.iloc[row])
-        start = row_chars[cols[0]][0]
-        end = row_chars[cols[-1]][1]
+        # print(row_chars)
+        col_start = cols[0]
+        col_end = cols[-1]
+        if (col_start >= len(row_chars) and len(cols) == 1) or col_end >= len(row_chars): # edge case with last token
+            print(row_chars)
+            print(cols)
+            print(tag)
+            col_start -= 1
+            col_end -= 1
+        start = row_chars[col_start][0]
+        end = row_chars[col_end][1]
         phi_array = row_tokens[cols[0]:cols[-1]+1] 
         phi_text = " ".join(phi_array)
         note_phi = note[start:end]
         if not phi_text == note_phi:
-            print("WARNING: mismatch between raw note and database. raw: "+note_phi + " DB: "+phi_text)
-        print("Start =",start, "End =",end,"Text =",note_phi, "Type =",tag)
+            pass
+            # print("WARNING: mismatch between raw note and database. raw: "+note_phi + " DB: "+phi_text)
+        # print("Start =",start, "End =",end,"Text =",note_phi, "Type =",tag)
 
+        tag_title = tag
+        if tag in hipaa_dic:
+            tag_title = hipaa_dic[tag]
         # i2b2 formatting
-        xml_tag = Element(tag, 
+        xml_tag = Element(tag_title, 
         {
             'id':"P"+str(i),
             "start":str(start),
             "end":str(end),
-            "text":phi_text,
+            "text":note_phi,
             "TYPE":tag,
             "comment":""
         })
