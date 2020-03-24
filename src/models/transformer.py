@@ -128,9 +128,8 @@ def encoder_layer(hparams, name="encoder_layer"):
   attention = tf.keras.layers.Dropout(hparams.dropout)(attention)
   attention = tf.keras.layers.LayerNormalization(epsilon=1e-6)(inputs +
                                                                attention)
-
   outputs = tf.keras.layers.Dense(
-      hparams.num_units, activation=hparams.activation)(attention)
+      hparams.num_units, activation="relu")(attention)
   outputs = tf.keras.layers.Dense(hparams.d_model)(outputs)
   outputs = tf.keras.layers.Dropout(hparams.dropout)(outputs)
   outputs = tf.keras.layers.LayerNormalization(epsilon=1e-6)(attention +
@@ -191,7 +190,7 @@ def decoder_layer(hparams, name="decoder_layer"):
                                                                 attention1)
 
   outputs = tf.keras.layers.Dense(
-      hparams.num_units, activation=hparams.activation)(attention2)
+      hparams.num_units, activation="relu")(attention2)
   outputs = tf.keras.layers.Dense(hparams.d_model)(outputs)
   outputs = tf.keras.layers.Dropout(hparams.dropout)(outputs)
   outputs = tf.keras.layers.LayerNormalization(epsilon=1e-6)(outputs +
@@ -273,13 +272,13 @@ class Transformer(tf.keras.Model):
         hyperparams = DotMap({
             'vocab_size' : self.vocab_size,
             'tag_size' : self.tag_size,
-            'num_layers':4,
-            'units':512,
-            'd_model':128,
-            'num_heads':4,
+            'num_layers':2,
+            'num_units':self.rnn_size,
+            'd_model': self.embedding_size,
+            'num_heads':2,
             'dropout':0.3,
-            'name':"sample_transformer"
-        })
+            'name':"sample_transformer"        
+            })
 
         self.transformer_full = transformer(hparams = hyperparams)
 
@@ -290,15 +289,18 @@ class Transformer(tf.keras.Model):
         Output: (batch_size, max_len, tag_size) 
         """
         #print("Input: ",inputs)
-        return self.transformer_full(inputs,labels)
+        return self.transformer_full.call(inputs = [inputs,labels])
 
-    def loss(self,y_true,y_pred):
+    def loss(self,y_pred,y_true):
         """
         Loss with mask over pads.
         """
-        y_true = tf.reshape(y_true, shape=(-1, self.max_len - 1))
+        y_true = tf.reshape(y_true, shape=(-1, self.max_len))
         loss = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True, reduction='none')(y_true, y_pred)
         mask = tf.cast(tf.not_equal(y_true, 0), tf.float32)
         loss = tf.multiply(loss, mask)
         return tf.reduce_mean(loss)
+
+    def predict(self,inputs):
+        output = tf.expand_dims()
