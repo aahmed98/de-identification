@@ -53,16 +53,18 @@ def df_to_train_set(df: pd.DataFrame):
     """
     Creates training set using df by padding sequences and returning X,y. If loading, sentences should already be padded.
     """
+    pbar = ProgressBar()
+    
     # pad id'd sentences and tags
     sentence_ids = []
     sentence_groups = df.groupby(['docid','sentence'])['token_id']
-    for _,data in sentence_groups:
+    for _,data in pbar(sentence_groups):
         sentence_ids.append(data.to_numpy())
     X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=PAD_IDX)
 
     label_ids = []
     label_groups = df.groupby(['docid','sentence'])['label_id']
-    for _,data in label_groups:
+    for _,data in pbar(label_groups):
         label_ids.append(data.to_numpy())
     y = pad_sequences(maxlen=None, sequences=label_ids, dtype = 'int32', padding="post", value=PAD_IDX)
 

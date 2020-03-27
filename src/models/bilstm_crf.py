@@ -31,11 +31,13 @@ class BiLSTM_CRF(tf.keras.Model):
         embeddings = tf.nn.embedding_lookup(self.E,inputs) # (batch_size, max_len, embedding_size)
         outputs = self.bi_lstm(embeddings) # (batch_size, max_len, 2*rnn_size)
         logits = self.d1(outputs) # (batch_size, max_len, tag_size)
-        log_likelihood, transition = tfa.text.crf_log_likelihood(logits,labels,np.full(inputs.shape[0], self.max_len), self.transition_params)
+
+        mask = tf.cast(tf.not_equal(labels, 0), tf.float32)
+        true_lengths = tf.reduce_sum(mask,axis = 1) # likelihood should ignore masks
+        log_likelihood, transition = tfa.text.crf_log_likelihood(logits,labels,true_lengths,self.transition_params)
         return log_likelihood, transition
 
     def loss(self,log_likelihood):
-        # return tf.reduce_sum(tf.keras.losses.sparse_categorical_crossentropy(labels, prbs))
         return tf.reduce_mean(-1*log_likelihood)
 
     def predict(self,inputs):
@@ -52,5 +54,5 @@ class BiLSTM_CRF(tf.keras.Model):
         for score in logits:
             pre_seq, _ = tfa.text.viterbi_decode(score[:], self.transition_params)
             pre_seqs.append(pre_seq)
-        return pre_seqs
+        return np.array(pre_seqs).flatten()
 
