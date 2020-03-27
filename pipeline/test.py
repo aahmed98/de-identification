@@ -1,6 +1,6 @@
 from sklearn.utils import shuffle
 import tensorflow as tf
-from .visualization import sample_output, sample_output_CRF, fancy_print, loss_plot
+from .visualization import sample_output, fancy_print, loss_plot
 from .metrics import accuracy_function
 from src.converter import bio_to_i2d2, get_label_positions
 import xml.etree.ElementTree as ET
@@ -60,9 +60,8 @@ def predict_document(model,docid,df):
     unique_docids = df["docid"].unique()
     assert docid in unique_docids, "DocID not in DataFrame"
     doc_df = df.groupby(by="docid").get_group(docid) # dataframe
-    # print(doc_df)
-    X,_ = df_to_train_set(doc_df,True)
-    predictions = tf.argmax(model(X),axis=2).numpy()
+    X,_ = df_to_train_set(doc_df)
+    predictions = tf.argmax(model.predict(X),axis=2).numpy()
     return predictions, doc_df
 
 

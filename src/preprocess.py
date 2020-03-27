@@ -49,31 +49,24 @@ def unstring_df_series(df_column: pd.Series):
         unstrung.append(ast.literal_eval(sentence))
     return unstrung
 
-def df_to_train_set(df: pd.DataFrame, loading = False):
+def df_to_train_set(df: pd.DataFrame):
     """
     Creates training set using df by padding sequences and returning X,y. If loading, sentences should already be padded.
     """
-    if not loading: # NOT loading
-        # pad id'd sentences and tags
-        sentence_ids = df["sentence_ids"].copy()
-        if type(sentence_ids[0]) is str:
-            sentence_ids = unstring_df_series(sentence_ids)
-        X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=PAD_IDX)
-        df["padded_sentence"] = X.tolist()
+    pbar = ProgressBar()
+    
+    # pad id'd sentences and tags
+    sentence_ids = []
+    sentence_groups = df.groupby(['docid','sentence'])['token_id']
+    for _,data in pbar(sentence_groups):
+        sentence_ids.append(data.to_numpy())
+    X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=PAD_IDX)
 
-        label_ids = df["labels_ids"].copy()
-        if type(label_ids[0]) is str:
-            label_ids = unstring_df_series(label_ids)
-        y = pad_sequences(maxlen=None, sequences=label_ids, padding="post", value=PAD_IDX)
-        df["padded_labels"] = y.tolist()
-
-    else: # loading
-        X = df["padded_sentence"].copy()
-        if type(X.iloc[0]) is str: # lists converted to strings when you save. must "unpack" string
-            X = np.array(unstring_df_series(X))
-        y = df["padded_labels"].copy()
-        if type(y.iloc[0]) is str:
-            y = np.array(unstring_df_series(y))
+    label_ids = []
+    label_groups = df.groupby(['docid','sentence'])['label_id']
+    for _,data in pbar(label_groups):
+        label_ids.append(data.to_numpy())
+    y = pad_sequences(maxlen=None, sequences=label_ids, dtype = 'int32', padding="post", value=PAD_IDX)
 
     print("Shape of X: ", X.shape)
     print("Shape of y: ", y.shape)
@@ -135,7 +128,7 @@ class PreProcessor:
 
     def my_tokenize(self,text):
         """
-        Custom tokenization function. Handles several edge cases observed in training data.
+        Custom tokenization function. Handles several edge cases observed in the training data.
         """
         nltk_tokens = self.tokenizer.tokenize(text)
         new_tokens = []
@@ -148,11 +141,9 @@ class PreProcessor:
                 second_word = capital_split[1][1:]+capital_split[2]
                 second_word_capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",second_word)
                 while len(second_word_capital_split) > 1: # recurse over second word
-                    # print("Recursing! Original word: ",token, "Second compound word: ",second_word)
                     new_tokens.append(second_word_capital_split[0] + second_word_capital_split[1][0])
                     second_word = second_word_capital_split[1][1:]+second_word_capital_split[2]
                     second_word_capital_split = re.split(r"([a-z][A-Z][a-zA-Z]+|[a-zA-Z][A-Z][a-z])",second_word)
-                # new_tokens.append(capital_split[1][1:]+capital_split[2]) # second word
                 new_tokens.append(second_word)
             elif len(num_chars) > 0: # number followed by letters
                 num_char_split = re.findall(r"\d+|\D+",num_chars[0]) # splits numbers from letters
@@ -162,7 +153,6 @@ class PreProcessor:
                 char_num_split = re.findall(r"\d+|\D+",char_num[0]) # splits letters 
                 for word in char_num_split:
                     new_tokens.append(word)
-                # print(char_num_split)
             else:
                 new_tokens.append(token)
         return new_tokens
@@ -237,31 +227,17 @@ class PreProcessor:
                 self.tags_seen.add(literal_tag)
 
         num_tags_actual = len(tag_queue)
-        # print(tag_queue)
-
         num_tags_counted = 0
+
         labels = []
         next_tag_token, next_tag = tag_queue.pop(0) # next_token is next token to have PHI
-        printing = False
-        if filename == "400-05.xml":
-            printing = False
         consecutive = False # checks for errors in preprocessing
         old_tag, old_tag_token = None, None
         for sentence in note_tokens:
-            # if printing:
-            #     print(tag_queue, "\n")
             label_sentence = []
             for token in sentence:
-                if printing:
-                    print("next tag token: ",next_tag_token)
-                    print("current token: ",token)
                 if next_tag_token != token:
                     if consecutive: # wrong label
-                        if printing:
-                            print("Sentence: ",sentence)
-                            print("Next Tag Token: ",next_tag_token)
-                            print("Next Token: ",token)
-                            print("Old Tag Token: ",old_tag_token)
                         if len(label_sentence) > 0: # wrong label is in current sentence
                             label_sentence.pop()
                             label_sentence.append('O')
@@ -274,31 +250,22 @@ class PreProcessor:
                         consecutive = False
                     label_sentence.append('O')
                 else:
-                    if printing:
-                        print("Appending",next_tag,"to the tag list")
                     label_sentence.append(next_tag)
                     num_tags_counted += 1
                     if len(tag_queue) > 0:
                         old_tag, old_tag_token = next_tag, next_tag_token
                         next_tag_token, next_tag = tag_queue.pop(0)
-                        if printing:
-                            print(next_tag_token,next_tag)
                         if old_tag[1:] == next_tag[1:] and old_tag[0] == "B" and next_tag[0] == "I": # consecutive tags
                             consecutive = True
                         else:
                             consecutive = False
                     else:
-                        break
+                        consecutive = False
 
             labels.append(label_sentence)
 
-        # print(labels)
-
         matched = num_tags_actual == num_tags_counted
         # asserts that all tags in tag queue were processed correctly
-        # print("Matched? ",matched) # "Mismatch. Actual #: "+ str(num_tags_actual) + ", Counted #: " + str(num_tags_counted)
-        if printing:
-            print(labels)
 
         return labels, matched 
 
@@ -315,21 +282,22 @@ class PreProcessor:
         labels = [] # documents x sentences x tokens
         for dir_name in pbar(data_sets):
             for filename in os.listdir(dir_name):
-                self.files_seen.append(filename)
                 # print(filename)
                 tree = ET.parse(dir_name + filename) # must pass entire path
                 root = tree.getroot()
                 note = root.find("TEXT").text
                 note_sentences, note_tokens, note_characters = self.process_text(note, isTrainSet)
                 tags, matched = self.process_tags(root,note_tokens, filename) 
-                labels.append(tags)
-                if not matched:
-                    self.tag_errors.append(filename)
                 if not isTrainSet:
                     note_tokens = self.replace_unknowns(note_tokens)
+                if not matched:
+                    self.tag_errors.append(filename)
+                    continue
+                self.files_seen.append(filename)   
                 s_array.append(note_sentences)
                 t_array.append(note_tokens)
                 c_array.append(note_characters)
+                labels.append(tags)
 
         print("# of Tag Processing Errors: ",len(self.tag_errors))
         print("Files with errors: ",self.tag_errors)
@@ -346,11 +314,17 @@ class PreProcessor:
                 tokenized_sentence = t_array[i][j]
                 character_sentence = c_array[i][j]
                 label_sentence = labels[i][j]
-                id_tokens = list(map(lambda token: self.word2idx[token],tokenized_sentence))
-                id_labels = list(map(lambda label: self.tag2idx[label],label_sentence))
-                data.append({'docid':docid,'sentence':tokenized_sentence,
-                'sentence_ids':id_tokens,'labels':label_sentence,'labels_ids':id_labels,
-                'characters':character_sentence})
+                assert len(tokenized_sentence) == len(character_sentence) == len(label_sentence), "counted characters or tokens incorrectly"
+                for k in range(len(tokenized_sentence)): # loop through tokens
+                    token = tokenized_sentence[k]
+                    token_id = self.word2idx[token]
+                    label = label_sentence[k]
+                    label_id = self.tag2idx[label]
+                    characters = character_sentence[k]
+                    data.append({'docid':docid,'sentence':j, 'token': token,
+                    'token_id':token_id,'label':label,'label_id':label_id,
+                    'characters':characters})
+
         df = pd.DataFrame(data)
         return df
 
@@ -369,11 +343,11 @@ class PreProcessor:
             temp.append(eval(sentence))
         return temp
 
-    def create_train_set(self,df,loading=False):
+    def create_train_set(self,df):
         """
         Creates training set using df by padding sequences and returning X,y. If loading, sentences are already padded.
         """
-        X,y = df_to_train_set(df,loading)
+        X,y = df_to_train_set(df)
         self.max_len = y.shape[1]
         return X, y
 
@@ -474,11 +448,11 @@ class PreProcessor:
             self.create_vocab_dict()
             self.create_label_dict()
             df = self.create_df(t_array,c_array,labels)
-            X, y = self.create_train_set(df,isLoading) # modifies df, which is why it comes before sav
+            X, y = self.create_train_set(df) # modifies df, which is why it comes before sav
             self.save_processed_data(df)
         else:
             df = self.load_processed_data(train_folders)
-            X,y = self.create_train_set(df,isLoading) # no modification to df in loading case
+            X,y = self.create_train_set(df) # no modification to df in loading case
         print("Preprocessing complete.")
         return X, y, df
 
@@ -489,9 +463,23 @@ class PreProcessor:
         if not isLoading:
             _, t_array,c_array,labels = self.process_data(test_folders,isTrainSet=False)
             df = self.create_df(t_array,c_array,labels)
-            X, y = df_to_train_set(df, isLoading)
+            X, y = df_to_train_set(df)
             self.save_test_data(title,df)
         else:
             df = self.load_test_data(test_folders)
-            X, y = df_to_train_set(df, isLoading)
+            X, y = df_to_train_set(df)
         return X,y,df
+
+if __name__ == "__main__":
+    train_folders = ["../../data/raw/training-PHI-Gold-Set2/"]
+    # train_folders = ["../../data/testing/"]
+    pp = PreProcessor("testing_full")
+    _, t_array,c_array,labels = pp.process_data(train_folders, isTrainSet=True)
+    pp.create_vocab_dict()
+    pp.create_label_dict()
+    df = pp.create_df(t_array,c_array,labels)
+    print(df.head())
+    X, y = pp.create_train_set(df)
+    pp.save_processed_data(df)
+    print(X)
+    print(y)
