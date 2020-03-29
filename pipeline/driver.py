@@ -3,7 +3,7 @@ from src.models.baseline import BaselineModel
 from src.models.bilstm import BiLSTM
 from src.models.bilstm_crf import BiLSTM_CRF
 from .visualization import sample_output
-from .train import train_CRF
+from .train import train
 from random import randint
 from sklearn.utils import shuffle
 import tensorflow as tf

@@ -6,6 +6,8 @@ from src.converter import bio_to_i2d2, get_label_positions
 import xml.etree.ElementTree as ET
 from src.preprocess import df_to_train_set
 import os
+import numpy as np
+from tqdm import tqdm
 
 PAD_IDX = 0
 UNK_IDX = NON_PHI_IDX = 1
@@ -42,15 +44,18 @@ def test_to_i2d2(model,test_df,pp,checkpoint = None,manager= None):
         checkpoint.restore(manager.latest_checkpoint)
 
     unique_docids = test_df["docid"].unique()
-    for docid in unique_docids:
-        print("Doc ID: ",docid)
+    for docid in tqdm(unique_docids):
+        # print("Doc ID: ",docid)
         tree = ET.parse("../data/raw/testing-PHI-Gold-fixed/" + docid + ".xml") # must pass entire path
         root = tree.getroot()
         note = root.find('TEXT').text
         predictions, doc_df = predict_document(model,docid,test_df)
-        doc_labels = get_label_positions(predictions,pp.idx2tag)
-        xml_doc = bio_to_i2d2(doc_df,doc_labels,note)
-        ET.ElementTree(xml_doc).write("../evaluation_data/" + model.title + "/"+ docid+".xml")
+        doc_labels, true_labels = get_label_positions(predictions,pp.idx2tag)
+        xml_doc = bio_to_i2d2(doc_df,doc_labels,note, true_labels)
+        path = "../evaluation_data/" + model.title + "/"
+        if not os.path.exists(path):
+            os.makedirs(path)
+        ET.ElementTree(xml_doc).write(path + docid+".xml")
 
 def predict_document(model,docid,df):
     """
@@ -60,8 +65,8 @@ def predict_document(model,docid,df):
     unique_docids = df["docid"].unique()
     assert docid in unique_docids, "DocID not in DataFrame"
     doc_df = df.groupby(by="docid").get_group(docid) # dataframe
-    X,_ = df_to_train_set(doc_df)
-    predictions = tf.argmax(model.predict(X),axis=2).numpy()
+    X,_ = df_to_train_set(doc_df, disable = True)
+    predictions = np.reshape(model.predict(X),X.shape)
     return predictions, doc_df
 
 

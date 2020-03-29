@@ -18,7 +18,7 @@ class BaselineModel(tf.keras.Model):
         self.rnn = tf.keras.layers.GRU(units= self.rnn_size, return_sequences = True)
         self.d1 = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(self.tag_size, activation = 'softmax'))
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def call(self,inputs):
         """
         Inputs: (batch_size, max_len)
@@ -34,7 +34,7 @@ class BaselineModel(tf.keras.Model):
         loss = tf.keras.losses.sparse_categorical_crossentropy(labels, prbs)
         mask = tf.cast(tf.not_equal(labels, 0), tf.float32)
         loss = tf.multiply(loss, mask)
-        return tf.reduce_mean(loss)
+        return tf.reduce_sum(loss)
 
     def predict(self,inputs):
         probs = self.call(inputs)

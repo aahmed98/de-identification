@@ -9,8 +9,8 @@ from keras.preprocessing.sequence import pad_sequences
 import re
 import json
 import ast
-from progressbar import ProgressBar
 import time
+from tqdm import tqdm
 
 PAD_IDX = 0
 UNK_IDX = NON_PHI_IDX = 1
@@ -43,33 +43,31 @@ def unstring_df_series(df_column: pd.Series):
     """
     Unstrings a df series. Needed when you load data.
     """
-    pbar = ProgressBar()
     unstrung = []
-    for sentence in pbar(df_column):
+    for sentence in tqdm(df_column):
         unstrung.append(ast.literal_eval(sentence))
     return unstrung
 
-def df_to_train_set(df: pd.DataFrame):
+def df_to_train_set(df: pd.DataFrame, disable = False):
     """
     Creates training set using df by padding sequences and returning X,y. If loading, sentences should already be padded.
     """
-    pbar = ProgressBar()
     
     # pad id'd sentences and tags
     sentence_ids = []
     sentence_groups = df.groupby(['docid','sentence'])['token_id']
-    for _,data in pbar(sentence_groups):
+    for _,data in tqdm(sentence_groups, disable = disable):
         sentence_ids.append(data.to_numpy())
     X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=PAD_IDX)
 
     label_ids = []
     label_groups = df.groupby(['docid','sentence'])['label_id']
-    for _,data in pbar(label_groups):
+    for _,data in tqdm(label_groups, disable = disable):
         label_ids.append(data.to_numpy())
     y = pad_sequences(maxlen=None, sequences=label_ids, dtype = 'int32', padding="post", value=PAD_IDX)
 
-    print("Shape of X: ", X.shape)
-    print("Shape of y: ", y.shape)
+    # print("Shape of X: ", X.shape)
+    # print("Shape of y: ", y.shape)
 
     return X, y
 
@@ -274,13 +272,12 @@ class PreProcessor:
         Creates sentence and token vectors for all the files in a folder.
         """
         print("Preprocessing data...")
-        pbar = ProgressBar()
 
         s_array = [] # documents x sentences
         t_array = [] # documents x sentences x tokens
         c_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
-        for dir_name in pbar(data_sets):
+        for dir_name in tqdm(data_sets):
             for filename in os.listdir(dir_name):
                 # print(filename)
                 tree = ET.parse(dir_name + filename) # must pass entire path

@@ -34,7 +34,7 @@ class BiLSTM(tf.keras.Model):
         loss = tf.keras.losses.sparse_categorical_crossentropy(labels, prbs)
         mask = tf.cast(tf.not_equal(labels, 0), tf.float32)
         loss = tf.multiply(loss, mask)
-        return tf.reduce_mean(loss)
+        return tf.reduce_sum(loss)
 
     def predict(self,inputs):
         probs = self.call(inputs)

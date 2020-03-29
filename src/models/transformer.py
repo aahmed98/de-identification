@@ -14,13 +14,8 @@ def scaled_dot_product_attention(query, key, value, mask):
   if mask is not None:
     logits += (mask * -1e9)
 
-  # print(logits.shape)
-  # print(logits)
-
   # softmax is normalized on the last axis (seq_len_k)
   attention_weights = tf.nn.softmax(logits, axis=-1)
-
-  # print(attention_weights)
 
   output = tf.matmul(attention_weights, value)
 
@@ -166,82 +161,6 @@ def encoder(hparams, name="encoder"):
   return tf.keras.Model(
       inputs=[inputs, padding_mask], outputs=outputs, name=name)
 
-
-# def decoder_layer(hparams, name="decoder_layer"):
-#   inputs = tf.keras.Input(shape=(None, hparams.d_model), name="inputs")
-#   enc_outputs = tf.keras.Input(
-#       shape=(None, hparams.d_model), name="encoder_outputs")
-#   look_ahead_mask = tf.keras.Input(
-#       shape=(1, None, None), name="look_ahead_mask")
-#   padding_mask = tf.keras.Input(shape=(1, 1, None), name='padding_mask')
-
-#   attention1 = MultiHeadAttention(
-#       hparams, name="attention_1")(inputs={
-#           'query': inputs,
-#           'key': inputs,
-#           'value': inputs,
-#           'mask': look_ahead_mask
-#       })
-#   attention1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)(attention1 +
-#                                                                 inputs)
-
-#   attention2 = MultiHeadAttention(
-#       hparams, name="attention_2")(inputs={
-#           'query': attention1,
-#           'key': enc_outputs,
-#           'value': enc_outputs,
-#           'mask': padding_mask
-#       })
-#   attention2 = tf.keras.layers.Dropout(hparams.dropout)(attention2)
-#   attention2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)(attention2 +
-#                                                                 attention1)
-
-#   outputs = tf.keras.layers.Dense(
-#       hparams.num_units, activation="relu")(attention2)
-#   outputs = tf.keras.layers.Dense(hparams.d_model)(outputs)
-#   outputs = tf.keras.layers.Dropout(hparams.dropout)(outputs)
-#   outputs = tf.keras.layers.LayerNormalization(epsilon=1e-6)(outputs +
-#                                                              attention2)
-
-#   return tf.keras.Model(
-#       inputs=[inputs, enc_outputs, look_ahead_mask, padding_mask],
-#       outputs=outputs,
-#       name=name)
-
-
-# def decoder(hparams, name='decoder'):
-#   # inputs = tf.keras.Input(shape=(None,), name='inputs') # labels. we don't want this to be fed in
-#   enc_outputs = tf.keras.Input(
-#       shape=(None, hparams.d_model), name='encoder_outputs')
-#   outputs = tf.keras.layers.Dense(hparams.d_model)(enc_outputs)
-      
-#   # look_ahead_mask = tf.keras.Input(
-#   #     shape=(1, None, None), name='look_ahead_mask')
-#   # padding_mask = tf.keras.Input(shape=(1, 1, None), name='padding_mask')
-
-#   # embeddings = tf.keras.layers.Embedding(hparams.vocab_size,
-#   #                                        hparams.d_model)(inputs)
-#   # embeddings *= tf.math.sqrt(tf.cast(hparams.d_model, tf.float32))
-#   # embeddings = PositionalEncoding(hparams)(embeddings)
-
-#   # outputs = tf.keras.layers.Dropout(hparams.dropout)(embeddings)
-
-#   # for i in range(hparams.num_layers):
-#   #   outputs = decoder_layer(
-#   #       hparams,
-#   #       name='decoder_layer_{}'.format(i),
-#   #   )(inputs=[outputs, enc_outputs, look_ahead_mask, padding_mask])
-
-
-#   # return tf.keras.Model(
-#   #     inputs=[inputs, enc_outputs, look_ahead_mask, padding_mask],
-#   #     outputs=outputs,
-#   #     name=name)
-#   return tf.keras.Model(
-#       inputs=[enc_outputs],
-#       outputs=outputs,
-#       name=name)
-
 def transformer(hparams, name="transformer"):
   inputs = tf.keras.Input(shape=(None,), name="inputs")
   # dec_inputs = tf.keras.Input(shape=(None,), name="dec_inputs")
@@ -249,23 +168,8 @@ def transformer(hparams, name="transformer"):
   enc_padding_mask = tf.keras.layers.Lambda(
       create_padding_mask, output_shape=(1, 1, None),
       name='enc_padding_mask')(inputs)
-  # mask the future tokens for decoder inputs at the 1st attention block
-  # look_ahead_mask = tf.keras.layers.Lambda(
-  #     create_look_ahead_mask,
-  #     output_shape=(1, None, None),
-  #     name='look_ahead_mask')(dec_inputs)
-  # # mask the encoder outputs for the 2nd attention block
-  # dec_padding_mask = tf.keras.layers.Lambda(
-  #     create_padding_mask, output_shape=(1, 1, None),
-  #     name='dec_padding_mask')(inputs)
 
   enc_outputs = encoder(hparams)(inputs=[inputs, enc_padding_mask])
-  # print(enc_outputs.shape)
-
-  # dec_outputs = decoder(hparams)(
-  #     inputs=[enc_outputs])
-  
-  # print(dec_outputs.shape)
 
   outputs = tf.keras.layers.Dense(
       units=hparams.tag_size, name="outputs", activation = "softmax")(enc_outputs)
@@ -299,13 +203,13 @@ class Transformer(tf.keras.Model):
 
         self.transformer_full = transformer(hparams = hyperparams)
 
-    # @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def call(self,inputs):
         """
         Inputs: (batch_size, max_len)
         Output: (batch_size, max_len, tag_size) 
         """
-        output =  self.transformer_full.call(inputs = [inputs])
+        output = self.transformer_full.call(inputs = [inputs])
         return output
 
     def loss(self,prbs,labels):
