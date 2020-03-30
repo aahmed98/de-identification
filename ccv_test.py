@@ -38,48 +38,14 @@ GOLD_TEST = Dataset(
 
 DATASETS = [SAMPLE_DATA,GOLD_1,GOLD_FULL, GOLD_TEST]
 
-# save paths to the available datasets
-from typing import NamedTuple, List
-
-class Dataset(NamedTuple):
-    """
-    Interface for accessing data folders.
-    """
-    title: str
-    preprocessed_folder: str
-    raw_folders: List[str]
-
-SAMPLE_DATA = Dataset(
-    title = "sample_data",
-    preprocessed_folder = "../data/preprocessed/sample_data/",
-    raw_folders = ["docs/Track1-de-indentification/PHI/"]
-)
-
-GOLD_1 = Dataset(
-    title = "gold_1",
-    preprocessed_folder = "../data/preprocessed/gold_1/",
-    raw_folders = ["../data/raw/training-PHI-Gold-Set1/"]
-)
-
-GOLD_FULL = Dataset(
-    title = "gold_full",
-    preprocessed_folder = "../data/preprocessed/gold_full/",
-    raw_folders = ["../data/raw/training-PHI-Gold-Set1/","../data/raw/training-PHI-Gold-Set2/"]
-)
-
-GOLD_TEST = Dataset(
-    title = "gold_test",
-    preprocessed_folder = "../data/preprocessed/gold_test/",
-    raw_folders = ["../data/raw/testing-PHI-Gold-fixed/"]
-)
-
-DATASETS = [SAMPLE_DATA,GOLD_1,GOLD_FULL, GOLD_TEST]
-
 # pick dataset and define loading boolean
 train_data = DATASETS[2]
 # train_data = DATASETS[0]
 test_data = DATASETS[3]
 isLoading = True
+
+# save paths to the available datasets
+from typing import NamedTuple, List
 
 # attach data to PreProcessor object.
 pp = PreProcessor(train_data.title)
