@@ -3,7 +3,7 @@ import tensorflow as tf
 from .visualization import sample_output, loss_plot
 
 vanilla = {"baseline-rnn","bi-lstm"}
-crf = {"bi-lstm-crf"}
+crf = {"bi-lstm-crf","transformer-crf"}
 transformer = {"transformer"}
 
 def train(model, train_inputs, train_labels, batch_size = 32,epochs= 10, lr = 0.001, sample_interval = 5, pp = None, manager = None, ckpt = None):
