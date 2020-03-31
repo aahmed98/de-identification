@@ -86,10 +86,10 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 print("Num GPUs:", len(physical_devices)) 
 
 # build model
-model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
+# model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = BiLSTM(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = BiLSTM_CRF(pp.vocab_size,pp.tag_size,pp.max_len)
-# model = Transformer(pp.vocab_size,pp.tag_size,pp.max_len)
+model = Transformer(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = Transformer_CRF(pp.vocab_size, pp.tag_size, pp.max_len)
 
 # configure checkpoints and checkpoint manager
@@ -105,8 +105,8 @@ if manager.latest_checkpoint:
     print("Restored from {}".format(manager.latest_checkpoint))
 
 # train
-# print("Training ",model.title)
-# losses = train(model,X_train,y_train,batch_size = 32, epochs=10, lr = 0.001, sample_interval=10,manager=manager,pp=pp)
+print("Training ",model.title)
+losses = train(model,X_train,y_train,batch_size = 32, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
 
 # sample a random output
 sample_output(model,X_train,y_train, pp = pp,rand_idx=None)

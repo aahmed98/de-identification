@@ -188,16 +188,16 @@ class Transformer(tf.keras.Model):
         self.max_len = max_len
         self.embedding_size = 64
         self.rnn_size = 128
-        self.title = "transformer"
+        self.title = "transformer-complex"
 
         hyperparams = DotMap({
             'vocab_size' : self.vocab_size,
             'tag_size' : self.tag_size,
-            'num_layers':1,
+            'num_layers':4,
             'num_units':self.rnn_size,
             'd_model': self.embedding_size,
-            'num_heads':1,
-            'dropout':0.1,
+            'num_heads':4,
+            'dropout':0.3,
             'name':"sample_transformer"        
             })
 
