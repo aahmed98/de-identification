@@ -4,7 +4,7 @@ from .visualization import sample_output, loss_plot
 
 vanilla = {"baseline-rnn","bi-lstm"}
 crf = {"bi-lstm-crf","transformer-crf"}
-transformer = {"transformer"}
+transformer = {"transformer", "transformer-bilstm","transformer-bilstm-complex"}
 
 def train(model, train_inputs, train_labels, batch_size = 32,epochs= 10, lr = 0.001, sample_interval = 5, pp = None, manager = None, ckpt = None):
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
