@@ -193,10 +193,10 @@ class Transformer(tf.keras.Model):
         hyperparams = DotMap({
             'vocab_size' : self.vocab_size,
             'tag_size' : self.tag_size,
-            'num_layers':4,
+            'num_layers':2,
             'num_units':self.rnn_size,
             'd_model': self.embedding_size,
-            'num_heads':4,
+            'num_heads':2,
             'dropout':0.3,
             'name':"sample_transformer"        
             })
