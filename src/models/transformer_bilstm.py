@@ -181,23 +181,28 @@ class TransformerBiLSTM(tf.keras.Model):
     """
     Transformer seq2seq.
     """
-    def __init__(self,vocab_sz,tag_size,max_len):
+    def __init__(self,vocab_sz,tag_size,max_len, title = "transformer-bilstm"):
         super(TransformerBiLSTM,self).__init__()
         self.vocab_size =  vocab_sz + 1 #add 1 because of weird problem with embedding lookup. only happens on large data. CPU/GPU related I think
         self.tag_size = tag_size
         self.max_len = max_len
         self.embedding_size = 64
         self.rnn_size = 128
-        self.title = "transformer-bilstm"
+        self.num_layers = 1
+        self.num_heads = 1
+        self.title = title
+        if "complex" in title:
+          self.num_layers = 2
+          self.num_heads = 2
 
         hyperparams = DotMap({
             'vocab_size' : self.vocab_size,
             'tag_size' : self.tag_size,
-            'num_layers':1,
+            'num_layers':self.num_layers,
             'num_units':self.rnn_size,
             'd_model': self.embedding_size,
-            'num_heads':1,
-            'dropout':0.1,
+            'num_heads':self.num_heads,
+            'dropout':0.3,
             'name':"sample_transformer"        
             })
 
