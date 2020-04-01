@@ -19,17 +19,11 @@ class BiLSTM_Chars(tf.keras.Model):
         self.d1 = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(self.tag_size, activation = 'softmax')) # softmax over tags for each word
 
     @tf.function
-<<<<<<< HEAD
-    def call(self,inputs):
-=======
     def call(self,inputs, char_embeddings):
->>>>>>> a2682884f2f6f8eb377c6e346268f8ea3282002a
         """
         Inputs: (batch_size, max_len)
         Output: (batch_size, max_len, tag_size) 
         """
-        print(inputs.shape)
-        print(char_embeddings.shape)
         embeddings = tf.nn.embedding_lookup(self.E,inputs) # (batch_size, max_len, embedding_size)
         embeddings = tf.concat([embeddings,char_embeddings],axis=2) # (batch_size, max_len, embedding_size + 50)
         # print(embeddings.shape)
