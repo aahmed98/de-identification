@@ -2,7 +2,7 @@ from sklearn.utils import shuffle
 import tensorflow as tf
 from .visualization import sample_output, loss_plot
 
-vanilla = {"baseline-rnn","bi-lstm"}
+vanilla = {"baseline-rnn","bi-lstm","bi-lstm-chars"}
 crf = {"bi-lstm-crf","transformer-crf"}
 transformer = {"transformer", "transformer-complex", "transformer-bilstm","transformer-bilstm-complex"}
 

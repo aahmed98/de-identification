@@ -67,6 +67,7 @@ from src.models.bilstm import BiLSTM
 from src.models.bilstm_crf import BiLSTM_CRF
 from src.models.transformer import Transformer
 from src.models.transformer_crf import Transformer_CRF
+from src.models.bilstm_chars import BiLSTM_Chars
 from pipeline.visualization import sample_output
 from pipeline.train import train
 from random import randint
@@ -89,8 +90,9 @@ print("Num GPUs:", len(physical_devices))
 # model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = BiLSTM(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = BiLSTM_CRF(pp.vocab_size,pp.tag_size,pp.max_len)
-model = Transformer(pp.vocab_size,pp.tag_size,pp.max_len)
+# model = Transformer(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = Transformer_CRF(pp.vocab_size, pp.tag_size, pp.max_len)
+model = BiLSTM_Chars(pp.vocab_size, pp.tag_size, pp.max_len,pp.idx2word)
 
 # configure checkpoints and checkpoint manager
 checkpoint_dir = 'models/checkpoints/' + train_data.title + '/' + model.title + '/' 
@@ -105,8 +107,8 @@ if manager.latest_checkpoint:
     print("Restored from {}".format(manager.latest_checkpoint))
 
 # train
-# print("Training ",model.title)
-# losses = train(model,X_train,y_train,batch_size = 32, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
+print("Training ",model.title)
+losses = train(model,X_train,y_train,batch_size = 32, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
 
 # sample a random output
 sample_output(model,X_train,y_train, pp = pp,rand_idx=None)
@@ -114,5 +116,5 @@ sample_output(model,X_train,y_train, pp = pp,rand_idx=None)
 # test model
 from pipeline.test import test_to_i2d2
 
-test_to_i2d2(model,df_test, pp, checkpoint, manager)
+# test_to_i2d2(model,df_test, pp, checkpoint, manager)
 
