@@ -20,7 +20,7 @@ class BiLSTM_Chars(tf.keras.Model):
                 name="idx2word"
             ) # must do this for tensorflow operation
         self.embedding_size = 50
-        self.rnn_size = 128
+        self.rnn_size = 64
         self.title = "bi-lstm-chars"
 
         self.c2v_model = c2v.load_model('eng_50')
@@ -40,6 +40,7 @@ class BiLSTM_Chars(tf.keras.Model):
         char_embeddings = np.reshape(char_embeddings, (inputs.shape[0],inputs.shape[1], -1))
         embeddings = tf.nn.embedding_lookup(self.E,inputs) # (batch_size, max_len, embedding_size)
         embeddings = tf.concat([embeddings,char_embeddings],axis=2) # (batch_size, max_len, embedding_size + 50)
+        # print(embeddings.shape)
         outputs = self.bi_lstm(embeddings) # (batch_size, max_len, 2*rnn_size)
         predictions = self.d1(outputs) # (batch_size, max_len, tag_size)
         return predictions
