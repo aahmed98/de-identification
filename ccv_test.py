@@ -86,7 +86,6 @@ physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 print("Num GPUs:", len(physical_devices)) 
 
-# tf.config.gpu.set_per_process_memory_growth(True)
 tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom = True)
 
 # build model

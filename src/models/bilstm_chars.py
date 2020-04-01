@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import chars2vec as c2v
 
 class BiLSTM_Chars(tf.keras.Model):
     """
@@ -11,34 +10,26 @@ class BiLSTM_Chars(tf.keras.Model):
         self.vocab_size =  vocab_size + 1 #add 1 because of weird problem with embedding lookup. only happens on large data. CPU/GPU related I think
         self.tag_size = tag_size
         self.max_len = max_len
-        self.idx2word = tf.lookup.StaticHashTable(
-            initializer=tf.lookup.KeyValueTensorInitializer(
-                keys=tf.constant(list(idx2word.keys())),
-                values=tf.constant(list(idx2word.values())),
-            ),
-                default_value=tf.constant("UNK"),
-                name="idx2word"
-            ) # must do this for tensorflow operation
-        self.embedding_size = 30
+        self.embedding_size = 50
         self.rnn_size = 64
         self.title = "bi-lstm-chars"
 
-        self.c2v_model = c2v.load_model('eng_50')
         self.E = tf.Variable(tf.random.normal([self.vocab_size,self.embedding_size],stddev = 0.1, dtype= tf.float32))
         self.bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.rnn_size, return_sequences = True)) # automatically sets backward layer to be identical to forward layer
         self.d1 = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(self.tag_size, activation = 'softmax')) # softmax over tags for each word
 
     @tf.function
+<<<<<<< HEAD
     def call(self,inputs):
+=======
+    def call(self,inputs, char_embeddings):
+>>>>>>> a2682884f2f6f8eb377c6e346268f8ea3282002a
         """
         Inputs: (batch_size, max_len)
         Output: (batch_size, max_len, tag_size) 
         """
-        #print("Input: ",inputs)
-        words = self.idx2word.lookup(inputs).numpy().flatten()
-        words = [str(word) for word in words] # chars2vec needs list of string
-        char_embeddings = self.c2v_model.vectorize_words(words)
-        char_embeddings = np.reshape(char_embeddings, (inputs.shape[0],inputs.shape[1], -1))
+        print(inputs.shape)
+        print(char_embeddings.shape)
         embeddings = tf.nn.embedding_lookup(self.E,inputs) # (batch_size, max_len, embedding_size)
         embeddings = tf.concat([embeddings,char_embeddings],axis=2) # (batch_size, max_len, embedding_size + 50)
         # print(embeddings.shape)
