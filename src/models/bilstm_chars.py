@@ -28,6 +28,7 @@ class BiLSTM_Chars(tf.keras.Model):
         self.bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.rnn_size, return_sequences = True)) # automatically sets backward layer to be identical to forward layer
         self.d1 = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(self.tag_size, activation = 'softmax')) # softmax over tags for each word
 
+    @tf.function
     def call(self,inputs):
         """
         Inputs: (batch_size, max_len)

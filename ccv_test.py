@@ -86,7 +86,7 @@ physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 print("Num GPUs:", len(physical_devices)) 
 
-tf.config.gpu.set_per_process_memory_growth(True)
+# tf.config.gpu.set_per_process_memory_growth(True)
 tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom = True)
 
 # build model
@@ -111,7 +111,7 @@ if manager.latest_checkpoint:
 
 # train
 print("Training ",model.title)
-losses = train(model,X_train,y_train,batch_size = 16, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
+losses = train(model,X_train,y_train,batch_size = 32, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
 
 # sample a random output
 sample_output(model,X_train,y_train, pp = pp,rand_idx=None)
