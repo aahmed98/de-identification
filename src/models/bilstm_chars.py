@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import chars2vec as c2v
 
 class BiLSTM_Chars(tf.keras.Model):
     """
@@ -13,6 +14,8 @@ class BiLSTM_Chars(tf.keras.Model):
         self.embedding_size = 50
         self.rnn_size = 64
         self.title = "bi-lstm-chars"
+        self.idx2word = idx2word
+        self.c2v_model = c2v.load_model('eng_50')
 
         self.E = tf.Variable(tf.random.normal([self.vocab_size,self.embedding_size],stddev = 0.1, dtype= tf.float32))
         self.bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.rnn_size, return_sequences = True)) # automatically sets backward layer to be identical to forward layer
@@ -38,7 +41,10 @@ class BiLSTM_Chars(tf.keras.Model):
         return tf.reduce_sum(loss)
 
     def predict(self,inputs):
-        probs = self.call(inputs)
+        words = [[self.idx2word[val] for val in row] for row in inputs]
+        words = np.array(words).flatten() # chars2vec needs list of string
+        char_embeddings = self.c2v_model.vectorize_words(words)
+        probs = self.call(inputs,char_embeddings)
         mle_output = tf.argmax(probs,axis=2).numpy().flatten()
         return mle_output
 
