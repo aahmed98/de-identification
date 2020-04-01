@@ -19,7 +19,7 @@ class BiLSTM_Chars(tf.keras.Model):
                 default_value=tf.constant("UNK"),
                 name="idx2word"
             ) # must do this for tensorflow operation
-        self.embedding_size = 50
+        self.embedding_size = 30
         self.rnn_size = 64
         self.title = "bi-lstm-chars"
 
