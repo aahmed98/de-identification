@@ -46,7 +46,7 @@ def test_to_i2d2(model,test_df,pp,checkpoint = None,manager= None):
     unique_docids = test_df["docid"].unique()
     for docid in tqdm(unique_docids):
         # print("Doc ID: ",docid)
-        tree = ET.parse("../data/raw/testing-PHI-Gold-fixed/" + docid + ".xml") # must pass entire path
+        tree = ET.parse("../de-ID_data/raw/testing-PHI-Gold-fixed/" + docid + ".xml") # must pass entire path
         root = tree.getroot()
         note = root.find('TEXT').text
         predictions, doc_df = predict_document(model,docid,test_df)

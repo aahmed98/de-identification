@@ -353,7 +353,7 @@ class PreProcessor:
         Saves df to csv/excel and dictionaries to json
         """
         title = self.title
-        folder = "../data/preprocessed/" + title + "/"
+        folder = "../de-ID_data/preprocessed/" + title + "/"
         path = folder + title
         if not os.path.exists(folder):
             os.makedirs(folder)
@@ -416,7 +416,7 @@ class PreProcessor:
         """
         Saves df to csv/excel and dictionaries to json
         """
-        folder = "../data/preprocessed/" + title + "/"
+        folder = "../de-ID_data/preprocessed/" + title + "/"
         path = folder + title
         if not os.path.exists(folder):
             os.makedirs(folder)
@@ -468,8 +468,8 @@ class PreProcessor:
         return X,y,df
 
 if __name__ == "__main__":
-    train_folders = ["../../data/raw/training-PHI-Gold-Set2/"]
-    # train_folders = ["../../data/testing/"]
+    train_folders = ["../../de-ID_data/raw/training-PHI-Gold-Set2/"]
+    # train_folders = ["../../de-ID_data/testing/"]
     pp = PreProcessor("testing_full")
     _, t_array,c_array,labels = pp.process_data(train_folders, isTrainSet=True)
     pp.create_vocab_dict()
