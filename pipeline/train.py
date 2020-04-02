@@ -58,7 +58,7 @@ def train(model, train_inputs, train_labels, batch_size = 32,epochs= 10, lr = 0.
         losses.append(epoch_loss)
         if manager is not None:
             manager.save() # save checkpoint at end of epoch
-        if pp is not None and epoch % sample_interval == 0:
-            sample_output(model,train_inputs,train_labels,pp)
+        # if pp is not None and epoch % sample_interval == 0:
+            # sample_output(model,train_inputs,train_labels,pp)
 
     return losses

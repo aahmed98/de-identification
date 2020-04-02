@@ -110,7 +110,7 @@ if manager.latest_checkpoint:
 
 # train
 print("Training ",model.title)
-losses = train(model,X_train,y_train,batch_size = 32, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
+losses = train(model,X_train,y_train,batch_size = 32, epochs=9, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
 
 # sample a random output
 sample_output(model,X_train,y_train, pp = pp,rand_idx=None)
