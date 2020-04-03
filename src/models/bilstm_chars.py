@@ -21,7 +21,7 @@ class BiLSTM_Chars(tf.keras.Model):
         self.bi_lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.rnn_size, return_sequences = True)) # automatically sets backward layer to be identical to forward layer
         self.d1 = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(self.tag_size, activation = 'softmax')) # softmax over tags for each word
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     def call(self,inputs, char_embeddings):
         """
         Inputs: (batch_size, max_len)
@@ -40,10 +40,16 @@ class BiLSTM_Chars(tf.keras.Model):
         loss = tf.multiply(loss, mask)
         return tf.reduce_sum(loss)
 
-    def predict(self,inputs):
-        words = [[self.idx2word[val] for val in row] for row in inputs]
-        words = np.array(words).flatten() # chars2vec needs list of string
+    def predict(self,inputs, words = None):
+        np_input = inputs.numpy()
+        if words is None:
+            words = [[self.idx2word[val] for val in row] for row in np_input]
+            words = np.array(words).flatten() # chars2vec needs list of string
+        else: 
+            words = words.flatten()
+            words = words.astype('str')
         char_embeddings = self.c2v_model.vectorize_words(words)
+        char_embeddings = tf.reshape(char_embeddings, [1,-1,50])
         probs = self.call(inputs,char_embeddings)
         mle_output = tf.argmax(probs,axis=2).numpy().flatten()
         return mle_output

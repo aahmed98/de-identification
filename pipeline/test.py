@@ -4,7 +4,7 @@ from .visualization import sample_output, fancy_print, loss_plot
 from .metrics import accuracy_function
 from src.converter import bio_to_i2d2, get_label_positions
 import xml.etree.ElementTree as ET
-from src.preprocess import df_to_train_set
+from src.preprocess import df_to_train_set, df_to_test_set
 import os
 import numpy as np
 from tqdm import tqdm
@@ -65,8 +65,9 @@ def predict_document(model,docid,df):
     unique_docids = df["docid"].unique()
     assert docid in unique_docids, "DocID not in DataFrame"
     doc_df = df.groupby(by="docid").get_group(docid) # dataframe
-    X,_ = df_to_train_set(doc_df, disable = True)
-    predictions = np.reshape(model.predict(X),X.shape)
+    X,_, X_words = df_to_test_set(doc_df, disable = True)
+    X = tf.reshape(X,(1,-1))
+    predictions = np.reshape(model.predict(X, X_words),X.shape)
     return predictions, doc_df
 
 

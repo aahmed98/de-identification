@@ -5,7 +5,7 @@ import numpy as np
 from xml.etree.ElementTree import tostring
 from xml.dom import minidom
 
-def sample_output(model, train_inputs, train_labels, pp, df=None,rand_idx = None):
+def sample_output(model, train_inputs, train_labels, pp, df=None,rand_idx = None, train_words = None):
     """
     Samples model(document) using fancyprint.
     """
@@ -18,7 +18,13 @@ def sample_output(model, train_inputs, train_labels, pp, df=None,rand_idx = None
     if df is not None:
         print(df.iloc[rand_idx,:6])
     sample_input_reshaped = tf.reshape(sample_input,(1,-1))
-    mle_output = model.predict(sample_input_reshaped)
+    if train_words is None:
+        mle_output = model.predict(sample_input_reshaped)
+    else:
+        sample_words = train_words[rand_idx]
+        # sample_words_reshaped = np.reshape(sample_words,(1,-1))
+        print(sample_words)
+        mle_output = model.predict(sample_input_reshaped, sample_words)
 
     orig_sentence = [pp.idx2word[idx] for idx in sample_input]
     true_tags = [pp.idx2tag[idx] for idx in sample_labels]
