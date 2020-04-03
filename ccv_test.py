@@ -68,6 +68,7 @@ from src.models.bilstm_crf import BiLSTM_CRF
 from src.models.transformer import Transformer
 from src.models.transformer_crf import Transformer_CRF
 from src.models.bilstm_chars import BiLSTM_Chars
+from src.models.bilstm_chars_crf import BiLSTM_Chars_CRF
 from pipeline.visualization import sample_output
 from pipeline.train import train
 from random import randint
@@ -94,7 +95,9 @@ tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom = True)
 # model = BiLSTM_CRF(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = Transformer(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = Transformer_CRF(pp.vocab_size, pp.tag_size, pp.max_len)
-model = BiLSTM_Chars(pp.vocab_size, pp.tag_size, pp.max_len,pp.idx2word)
+# model = BiLSTM_Chars(pp.vocab_size, pp.tag_size, pp.max_len,pp.idx2word)
+model = BiLSTM_Chars_CRF(pp.vocab_size, pp.tag_size, pp.max_len,pp.idx2word)
+
 
 # configure checkpoints and checkpoint manager
 checkpoint_dir = 'models/checkpoints/' + train_data.title + '/' + model.title + '/' 

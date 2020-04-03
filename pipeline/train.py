@@ -8,6 +8,7 @@ vanilla = {"baseline-rnn","bi-lstm"}
 crf = {"bi-lstm-crf","transformer-crf"}
 transformer = {"transformer", "transformer-complex", "transformer-bilstm","transformer-bilstm-complex"}
 chars = {"bi-lstm-chars"}
+crf_chars = {"bi-lstm-chars-crf"}
 
 def train(model, train_inputs, train_labels, batch_size = 32,epochs= 10, lr = 0.001, sample_interval = 5, pp = None, manager = None, ckpt = None):
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -18,7 +19,7 @@ def train(model, train_inputs, train_labels, batch_size = 32,epochs= 10, lr = 0.
         if manager.latest_checkpoint:
             print("Restored from {}".format(manager.latest_checkpoint))
 
-    if model.title in chars:
+    if model.title in chars or model.title in crf_chars:
         idx2word = pp.idx2word
         c2v_model = c2v.load_model('eng_50')
 
@@ -45,6 +46,14 @@ def train(model, train_inputs, train_labels, batch_size = 32,epochs= 10, lr = 0.
                 with tf.GradientTape() as tape:
                     probs = model(input_batch, char_embeddings) # bsz x max_len x tag_size
                     loss = model.loss(probs,output_batch)
+            elif model.title in crf_chars:
+                words = [[idx2word[val] for val in row] for row in input_batch]
+                words = np.array(words).flatten() # chars2vec needs list of string
+                char_embeddings = c2v_model.vectorize_words(words)
+                char_embeddings = np.reshape(char_embeddings, (input_batch.shape[0],input_batch.shape[1], -1))
+                with tf.GradientTape() as tape:
+                    log_likelihood,_ = model(input_batch, char_embeddings, output_batch) # bsz x max_len x tag_size
+                    loss = model.loss(log_likelihood)
             else: # transformer
                 assert model.title in transformer, "invalid model for training"
                 with tf.GradientTape() as tape:
