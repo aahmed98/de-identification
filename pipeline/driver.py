@@ -1,4 +1,4 @@
-from src.preprocess import PreProcessor, df_to_train_set
+from src.preprocess import PreProcessor, df_to_train_set, df_to_XY
 from src.models.baseline import BaselineModel
 from src.models.bilstm import BiLSTM
 from src.models.bilstm_crf import BiLSTM_CRF
@@ -53,7 +53,7 @@ def predict_document(model,docid,df):
     assert docid in unique_docids, "DocID not in DataFrame"
     doc_df = df.groupby(by="docid").get_group(docid) # dataframe
     print(doc_df)
-    X,_ = df_to_train_set(doc_df,True)
+    X,_, _ = df_to_XY(doc_df,True)
     predictions = tf.argmax(model(X),axis=2).numpy()
     return predictions, doc_df
 
