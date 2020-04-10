@@ -71,6 +71,47 @@ def df_to_train_set(df: pd.DataFrame, disable = False):
 
     return X, y
 
+def df_to_XY(df: pd.DataFrame, disable = False):
+    """
+    Creates training set using df by padding sequences and returning X,y. If loading, sentences should already be padded.
+    """
+    
+    # pad id'd sentences and tags
+    sentence_ids = []
+    sentence_words = []
+    label_ids = []
+
+    sentence_groups = df.groupby(['docid','sentence'])
+
+    id_groups = sentence_groups['token_id']
+
+    try:
+        word_groups = sentence_groups['original_token']
+    except KeyError:
+        word_groups = sentence_groups['token']
+
+    label_groups = sentence_groups['label_id']
+
+    for _,data in tqdm(id_groups, disable = disable):
+        sentence_ids.append(data.to_numpy())
+
+    X = pad_sequences(maxlen=None, sequences=sentence_ids, dtype = 'int32', padding="post", value=PAD_IDX)
+
+    for _,data in tqdm(word_groups):
+        sentence_words.append(data.to_numpy())
+
+    X_words = pad_sequences(maxlen=None, sequences=sentence_words, dtype = object, padding="post", value="PAD")
+
+    for _,data in tqdm(label_groups, disable = disable):
+        label_ids.append(data.to_numpy())
+    y = pad_sequences(maxlen=None, sequences=label_ids, dtype = 'int32', padding="post", value=PAD_IDX)
+
+    # print("Shape of X: ", X.shape)
+    # print("Shape of y: ", y.shape)
+
+    return X, y, X_words
+
+
 class PreProcessor:
     def __init__(self,title):
         self.words_seen = set()
@@ -81,8 +122,6 @@ class PreProcessor:
         self.title = title #title of folder to save data to
 
         self.tokenizer = RegexpTokenizer(r"[a-zA-Z0-9]+|[^a-zA-Z0-9\s]+") # modified tokenizer to exclude underscores as word characters
-
-        self.tag_errors = []
     
     def replace_unknowns(self,tokens):
         """
@@ -275,6 +314,7 @@ class PreProcessor:
 
         s_array = [] # documents x sentences
         t_array = [] # documents x sentences x tokens
+        t_original_array = []
         c_array = [] # documents x sentences x tokens
         labels = [] # documents x sentences x tokens
         for dir_name in tqdm(data_sets):
@@ -286,6 +326,7 @@ class PreProcessor:
                 note_sentences, note_tokens, note_characters = self.process_text(note, isTrainSet)
                 tags, matched = self.process_tags(root,note_tokens, filename) 
                 if not isTrainSet:
+                    tokens_original = note_tokens
                     note_tokens = self.replace_unknowns(note_tokens)
                 if not matched:
                     self.tag_errors.append(filename)
@@ -294,13 +335,16 @@ class PreProcessor:
                 s_array.append(note_sentences)
                 t_array.append(note_tokens)
                 c_array.append(note_characters)
+                if not isTrainSet:
+                    t_original_array.append(tokens_original)
                 labels.append(tags)
 
         print("# of Tag Processing Errors: ",len(self.tag_errors))
         print("Files with errors: ",self.tag_errors)
-        return s_array, t_array,c_array, labels
 
-    def create_df(self,t_array,c_array,labels):
+        return t_original_array, t_array,c_array, labels
+
+    def create_df(self,t_array,c_array,labels, t_original = None):
         """
         Converts data to pandas df. df contains docid, unpadded sentences, and unpadded tags.
         """
@@ -310,6 +354,10 @@ class PreProcessor:
             for j in range(len(t_array[i])): # sentences
                 tokenized_sentence = t_array[i][j]
                 character_sentence = c_array[i][j]
+
+                if t_original is not None: 
+                    original_tokenized_sentence = t_original[i][j]
+
                 label_sentence = labels[i][j]
                 assert len(tokenized_sentence) == len(character_sentence) == len(label_sentence), "counted characters or tokens incorrectly"
                 for k in range(len(tokenized_sentence)): # loop through tokens
@@ -318,9 +366,17 @@ class PreProcessor:
                     label = label_sentence[k]
                     label_id = self.tag2idx[label]
                     characters = character_sentence[k]
-                    data.append({'docid':docid,'sentence':j, 'token': token,
-                    'token_id':token_id,'label':label,'label_id':label_id,
-                    'characters':characters})
+
+                    if t_original is not None:
+                        original_token = original_tokenized_sentence[k]
+                        data.append({'docid':docid,'sentence':j, 'token': token,
+                        'token_id':token_id,'label':label,'label_id':label_id,
+                        'characters':characters, 'original_token': original_token})
+
+                    else:
+                        data.append({'docid':docid,'sentence':j, 'token': token,
+                        'token_id':token_id,'label':label,'label_id':label_id,
+                        'characters':characters})                        
 
         df = pd.DataFrame(data)
         return df
@@ -344,9 +400,9 @@ class PreProcessor:
         """
         Creates training set using df by padding sequences and returning X,y. If loading, sentences are already padded.
         """
-        X,y = df_to_train_set(df)
+        X,y, X_words = df_to_XY(df)
         self.max_len = y.shape[1]
-        return X, y
+        return X, y, X_words
 
     def save_processed_data(self,df):
         """
@@ -385,7 +441,8 @@ class PreProcessor:
             if filename.endswith('word2idx.json'):
                 with open(path) as f:
                     self.word2idx = json.load(f)
-                    self.vocab_size = len(self.word2idx.keys()) 
+                    self.vocab_size = len(self.word2idx.keys())
+                    self.words_seen = set(self.word2idx.keys()) 
             if filename.endswith('tag2idx.json'):
                 with open(path) as f:
                     self.tag2idx = json.load(f)
@@ -440,32 +497,34 @@ class PreProcessor:
         isLoading: train_folder is SINGLE path to dir that contains .csv, dictionaries.
         !isLoading: rain_folders is LIST of paths to dirs that contain i2b2 data 
         """
+        self.tag_errors = []
         if not isLoading:
             _, t_array,c_array,labels = self.process_data(train_folders, isTrainSet=True)
             self.create_vocab_dict()
             self.create_label_dict()
             df = self.create_df(t_array,c_array,labels)
-            X, y = self.create_train_set(df) # modifies df, which is why it comes before sav
+            X, y, X_words = self.create_train_set(df) # modifies df, which is why it comes before sav
             self.save_processed_data(df)
         else:
             df = self.load_processed_data(train_folders)
-            X,y = self.create_train_set(df) # no modification to df in loading case
+            X, y, X_words = self.create_train_set(df) # no modification to df in loading case
         print("Preprocessing complete.")
-        return X, y, df
+        return X, y, X_words, df
 
     def create_test_set(self,test_folders, isLoading = False, title = None):
         """
         Creates test set given test folders.
         """
+        self.tag_errors = []
         if not isLoading:
-            _, t_array,c_array,labels = self.process_data(test_folders,isTrainSet=False)
-            df = self.create_df(t_array,c_array,labels)
-            X, y = df_to_train_set(df)
+            t_original, t_array,c_array,labels = self.process_data(test_folders,isTrainSet=False) # t_original contains no UNKs
+            df = self.create_df(t_array,c_array,labels, t_original)
+            X, y, X_words = df_to_XY(df)
             self.save_test_data(title,df)
         else:
             df = self.load_test_data(test_folders)
-            X, y = df_to_train_set(df)
-        return X,y,df
+            X, y, X_words = df_to_XY(df)
+        return X, y, X_words, df
 
 if __name__ == "__main__":
     train_folders = ["../../de-ID_data/raw/training-PHI-Gold-Set2/"]

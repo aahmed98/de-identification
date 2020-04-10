@@ -50,16 +50,16 @@ from typing import NamedTuple, List
 # attach data to PreProcessor object.
 pp = PreProcessor(train_data.title)
 if isLoading:
-    X_train,y_train,df_train = pp.get_data(train_data.preprocessed_folder,isLoading = isLoading)
+    X_train,y_train,X_train_words,df_train = pp.get_data(train_data.preprocessed_folder,isLoading = isLoading)
 else:
-    X_train,y_train,df_train = pp.get_data(train_data.raw_folders,isLoading = isLoading)
+    X_train,y_train,X_train_words,df_train = pp.get_data(train_data.raw_folders,isLoading = isLoading)
 print("max length: ",pp.max_len)
 
 # load test set
 if isLoading:
-    X_test,y_test,df_test = pp.create_test_set(test_data.preprocessed_folder,isLoading,test_data.title)
+    X_test,y_test,X_test_words,df_test = pp.create_test_set(test_data.preprocessed_folder,isLoading,test_data.title)
 else:
-    X_test,y_test,df_test = pp.create_test_set(test_data.raw_folders,isLoading,test_data.title)
+    X_test,y_test,X_test_words,df_test = pp.create_test_set(test_data.raw_folders,isLoading,test_data.title)
 
 # import model stuff
 from src.models.baseline import BaselineModel
@@ -67,6 +67,8 @@ from src.models.bilstm import BiLSTM
 from src.models.bilstm_crf import BiLSTM_CRF
 from src.models.transformer import Transformer
 from src.models.transformer_crf import Transformer_CRF
+from src.models.bilstm_chars import BiLSTM_Chars
+from src.models.bilstm_chars_crf import BiLSTM_Chars_CRF
 from pipeline.visualization import sample_output
 from pipeline.train import train
 from random import randint
@@ -85,12 +87,17 @@ physical_devices = tf.config.list_physical_devices('GPU')
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 print("Num GPUs:", len(physical_devices)) 
 
+tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom = True)
+
 # build model
 # model = BaselineModel(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = BiLSTM(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = BiLSTM_CRF(pp.vocab_size,pp.tag_size,pp.max_len)
-model = Transformer(pp.vocab_size,pp.tag_size,pp.max_len)
+# model = Transformer(pp.vocab_size,pp.tag_size,pp.max_len)
 # model = Transformer_CRF(pp.vocab_size, pp.tag_size, pp.max_len)
+# model = BiLSTM_Chars(pp.vocab_size, pp.tag_size, pp.max_len,pp.idx2word)
+model = BiLSTM_Chars_CRF(pp.vocab_size, pp.tag_size, pp.max_len,pp.idx2word)
+
 
 # configure checkpoints and checkpoint manager
 checkpoint_dir = 'models/checkpoints/' + train_data.title + '/' + model.title + '/' 
@@ -105,8 +112,8 @@ if manager.latest_checkpoint:
     print("Restored from {}".format(manager.latest_checkpoint))
 
 # train
-# print("Training ",model.title)
-# losses = train(model,X_train,y_train,batch_size = 32, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
+print("Training ",model.title)
+losses = train(model,X_train,y_train,X_train_words,batch_size = 32, epochs=10, lr = 0.0005, sample_interval=10,manager=manager,pp=pp)
 
 # sample a random output
 sample_output(model,X_train,y_train, pp = pp,rand_idx=None)
