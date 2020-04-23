@@ -527,15 +527,4 @@ class PreProcessor:
         return X, y, X_words, df
 
 if __name__ == "__main__":
-    train_folders = ["../../de-ID_data/raw/training-PHI-Gold-Set2/"]
-    # train_folders = ["../../de-ID_data/testing/"]
-    pp = PreProcessor("testing_full")
-    _, t_array,c_array,labels = pp.process_data(train_folders, isTrainSet=True)
-    pp.create_vocab_dict()
-    pp.create_label_dict()
-    df = pp.create_df(t_array,c_array,labels)
-    print(df.head())
-    X, y = pp.create_train_set(df)
-    pp.save_processed_data(df)
-    print(X)
-    print(y)
+    pass
