@@ -347,6 +347,7 @@ class PreProcessor:
     def create_df(self,t_array,c_array,labels, t_original = None):
         """
         Converts data to pandas df. df contains docid, unpadded sentences, and unpadded tags.
+        t_original is used for test set in order to use characters for NANs
         """
         data = []
         for i in range(len(t_array)): # documents

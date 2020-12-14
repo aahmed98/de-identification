@@ -24,6 +24,9 @@ def sample_output(model, inputs, labels, pp, df=None,rand_idx = None, words = No
         sample_words = words[rand_idx]
         mle_output = model.predict(sample_input_reshaped, sample_words)
 
+    print("input shape: ", sample_input_reshaped.shape)
+    print("output shape: ", mle_output.shape)
+
     orig_sentence = [pp.idx2word[idx] for idx in sample_input]
     true_tags = [pp.idx2tag[idx] for idx in sample_labels]
     predicted_tags = [pp.idx2tag[idx] for idx in mle_output]
