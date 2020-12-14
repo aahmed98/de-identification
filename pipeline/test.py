@@ -46,13 +46,14 @@ def test_to_i2d2(model,test_df,pp,checkpoint = None,manager= None):
     unique_docids = test_df["docid"].unique()
     for docid in tqdm(unique_docids):
         # print("Doc ID: ",docid)
-        tree = ET.parse("../de-ID_data/raw/testing-PHI-Gold-fixed/" + docid + ".xml") # must pass entire path
+        # tree = ET.parse("../de-ID_data/raw/testing-PHI-Gold-fixed/" + docid + ".xml") # must pass entire path
+        tree = ET.parse("../de-ID_data/covid/" + docid + ".xml") # must pass entire path
         root = tree.getroot()
         note = root.find('TEXT').text
         predictions, doc_df = predict_document(model,docid,test_df)
         doc_labels, true_labels = get_label_positions(predictions,pp.idx2tag)
         xml_doc = bio_to_i2d2(doc_df,doc_labels,note, true_labels)
-        path = "../evaluation_data/" + model.title + "/"
+        path = "../evaluation_data/covid/" + model.title + "/"
         if not os.path.exists(path):
             os.makedirs(path)
         ET.ElementTree(xml_doc).write(path + docid+".xml")
@@ -66,8 +67,9 @@ def predict_document(model,docid,df):
     assert docid in unique_docids, "DocID not in DataFrame"
     doc_df = df.groupby(by="docid").get_group(docid) # dataframe
     X,_, X_words = df_to_XY(doc_df, disable = True)
-    X = tf.reshape(X,(1,-1))
-    predictions = np.reshape(model.predict(X, X_words),X.shape)
+    # X = tf.reshape(X,(1,-1))
+    # predictions = np.reshape(model.predict(X, X_words),X.shape)
+    predictions = np.reshape(model.predict(X),X.shape)
     return predictions, doc_df
 
 

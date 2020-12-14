@@ -147,7 +147,21 @@ def get_predicate_function(arg, tag):
     # If we have a tag name (ie. MEDICATION) add 'name' to the attributes
     if arg in tag.tag_types.keys():
         attrs.append("name")
+        # attrs.append(arg)
     else:
+        tag_attributes = ["valid_type1", "valid_type2", "valid_indicator",
+                          "valid_status", "valid_time", "valid_type"]
+        for cls in MEDICAL_TAG_CLASSES:
+            for attr in tag_attributes:
+                try:
+                    if arg in getattr(cls, attr):
+                        # add the attribute,  strip out the "valid_" prefix
+                        # This assumes that classes follow the
+                        # valid_ATTRIBUTE convention
+                        # and will break if they are extended
+                        attrs.append(attr.replace("valid_", ""))
+                except AttributeError:
+                    continue
         tag_attributes = ["valid_type1", "valid_type2", "valid_indicator",
                           "valid_status", "valid_time", "valid_type"]
         for cls in MEDICAL_TAG_CLASSES:
@@ -176,6 +190,9 @@ def get_predicate_function(arg, tag):
         print("WARNING: could not find valid class attribute for " +
               "\"{}\", + skipping.".format(arg))
         return lambda t: True
+
+    print(attrs)
+
 
     # Define the predicate function we will use. artrs are scoped into
     # the closure,  which is sort of the whole point of the
@@ -332,14 +349,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.filter:
+        filters = [get_predicate_function(a, PHITag if args.sp == "phi" else DocumentTag)
+                          for a in args.filter.split(",")]
+        print(filters)
         evaluate(args.from_dirs, args.to_dir,
                  PHITrackEvaluation if args.sp == "phi" else
                  CardiacRiskTrackEvaluation,
                  verbose=args.verbose,
                  invert=args.invert,
                  conjunctive=args.conjunctive,
-                 filters=[get_predicate_function(a, PHITag if args.sp == "phi" else DocumentTag)
-                          for a in args.filter.split(",")])
+                 filters=filters)
     else:
         evaluate(args.from_dirs, args.to_dir,
                  PHITrackEvaluation if args.sp == "phi" else

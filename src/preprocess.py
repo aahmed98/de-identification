@@ -324,20 +324,20 @@ class PreProcessor:
                 root = tree.getroot()
                 note = root.find("TEXT").text
                 note_sentences, note_tokens, note_characters = self.process_text(note, isTrainSet)
-                tags, matched = self.process_tags(root,note_tokens, filename) 
+                # tags, matched = self.process_tags(root,note_tokens, filename) 
                 if not isTrainSet:
                     tokens_original = note_tokens
                     note_tokens = self.replace_unknowns(note_tokens)
-                if not matched:
-                    self.tag_errors.append(filename)
-                    continue
+                # if not matched:
+                #     self.tag_errors.append(filename)
+                #     continue
                 self.files_seen.append(filename)   
                 s_array.append(note_sentences)
                 t_array.append(note_tokens)
                 c_array.append(note_characters)
                 if not isTrainSet:
                     t_original_array.append(tokens_original)
-                labels.append(tags)
+                labels.append(tokens_original)
 
         print("# of Tag Processing Errors: ",len(self.tag_errors))
         print("Files with errors: ",self.tag_errors)
@@ -364,7 +364,8 @@ class PreProcessor:
                     token = tokenized_sentence[k]
                     token_id = self.word2idx[token]
                     label = label_sentence[k]
-                    label_id = self.tag2idx[label]
+                    # label_id = self.tag2idx[label]
+                    label_id = 69
                     characters = character_sentence[k]
 
                     if t_original is not None:

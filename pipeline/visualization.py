@@ -11,7 +11,7 @@ def sample_output(model, inputs, labels, pp, df=None,rand_idx = None, words = No
     """
     if rand_idx is None:
         n = len(inputs)
-        rand_idx = randint(0,n)
+        rand_idx = randint(0,n-1)
     print("Sentence #: ",rand_idx)
     sample_input = inputs[rand_idx]
     sample_labels = labels[rand_idx]
@@ -25,7 +25,7 @@ def sample_output(model, inputs, labels, pp, df=None,rand_idx = None, words = No
         mle_output = model.predict(sample_input_reshaped, sample_words)
 
     orig_sentence = [pp.idx2word[idx] for idx in sample_input]
-    true_tags = [pp.idx2tag[idx] for idx in sample_labels]
+    true_tags = [pp.idx2tag[1] for idx in sample_labels]
     predicted_tags = [pp.idx2tag[idx] for idx in mle_output]
 
     fancy_print(orig_sentence,predicted_tags,true_tags)

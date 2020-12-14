@@ -37,6 +37,7 @@ def get_label_positions(labels,idx2tag):
     prev = None
     label_tag = None
     for sent,idx in zip(true_labels[0],true_labels[1]):
+        # print(sent)
         curr_idx = labels[sent,idx]
         curr_tag = idx2tag[curr_idx]
         if prev is None: # first iteration
@@ -71,9 +72,12 @@ def bio_to_i2d2(df,doc_labels,note,true_labels= None):
     sentence_groups = df.groupby((['sentence']))
     for i,(row,cols,tag) in enumerate(doc_labels):
         sentence = sentence_groups.get_group(row) # current sentence
+
         try:
-            start = eval(sentence['characters'].iloc[cols[0]]) # (a,b) as string
-            end = eval(sentence['characters'].iloc[cols[-1]])
+            # start = eval(sentence['characters'].iloc[cols[0]]) # (a,b) as string
+            # end = eval(sentence['characters'].iloc[cols[-1]])
+            start = sentence['characters'].iloc[cols[0]]
+            end = sentence['characters'].iloc[cols[-1]]
         except IndexError:
             # print("Index Error")
             continue
@@ -101,4 +105,4 @@ def bio_to_i2d2(df,doc_labels,note,true_labels= None):
     tags_child = SubElement(root,"TAGS")
     for tag in i2d2_tags:
         SubElement(tags_child,tag.tag,attrib=tag.attrib)
-    return root  
+    return root
