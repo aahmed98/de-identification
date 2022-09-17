@@ -66,8 +66,9 @@ def predict_document(model,docid,df):
     assert docid in unique_docids, "DocID not in DataFrame"
     doc_df = df.groupby(by="docid").get_group(docid) # dataframe
     X,_, X_words = df_to_XY(doc_df, disable = True)
-    X = tf.reshape(X,(1,-1))
-    predictions = np.reshape(model.predict(X, X_words),X.shape)
+    print(X.shape)
+    # X = tf.reshape(X,(1,-1))
+    predictions = np.reshape(model.predict(X),X.shape)
     return predictions, doc_df
 
 
