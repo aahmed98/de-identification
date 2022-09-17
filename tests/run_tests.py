@@ -7,6 +7,6 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('model', type = str, help="pick model", default='baseline')
+    parser.add_argument('model', type = str, help="pick model", default='bi-lstm-crf')
     args = parser.parse_args()
     main()

@@ -306,7 +306,7 @@ class PreProcessor:
 
         return labels, matched 
 
-    def process_data(self,data_sets, isTrainSet: bool = True):
+    def process_data(self,data_sets, isTrainSet: bool = True, tags_available = False):
         """
         Creates sentence and token vectors for all the files in a folder.
         """
@@ -319,12 +319,16 @@ class PreProcessor:
         labels = [] # documents x sentences x tokens
         for dir_name in tqdm(data_sets):
             for filename in os.listdir(dir_name):
-                # print(filename)
+                print(filename)
                 tree = ET.parse(dir_name + filename) # must pass entire path
                 root = tree.getroot()
                 note = root.find("TEXT").text
                 note_sentences, note_tokens, note_characters = self.process_text(note, isTrainSet)
-                tags, matched = self.process_tags(root,note_tokens, filename) 
+                if tags_available:
+                    tags, matched = self.process_tags(root,note_tokens, filename)
+                else:
+                    tags = note_tokens
+                    matched = True
                 if not isTrainSet:
                     tokens_original = note_tokens
                     note_tokens = self.replace_unknowns(note_tokens)
@@ -365,7 +369,8 @@ class PreProcessor:
                     token = tokenized_sentence[k]
                     token_id = self.word2idx[token]
                     label = label_sentence[k]
-                    label_id = self.tag2idx[label]
+                    # label_id = self.tag2idx[label]
+                    label_id = 69
                     characters = character_sentence[k]
 
                     if t_original is not None:
@@ -517,6 +522,7 @@ class PreProcessor:
         Creates test set given test folders.
         """
         self.tag_errors = []
+        self.files_seen = []
         if not isLoading:
             t_original, t_array,c_array,labels = self.process_data(test_folders,isTrainSet=False) # t_original contains no UNKs
             df = self.create_df(t_array,c_array,labels, t_original)

@@ -5,7 +5,7 @@ import numpy as np
 from xml.etree.ElementTree import tostring
 from xml.dom import minidom
 
-def sample_output(model, inputs, labels, pp, df=None,rand_idx = None, words = None):
+def sample_output(model, inputs, labels, pp, df=None,rand_idx = None, words = None, use_true_tags = True):
     """
     Samples model(document) using fancyprint.
     """
@@ -28,8 +28,11 @@ def sample_output(model, inputs, labels, pp, df=None,rand_idx = None, words = No
     print("output shape: ", mle_output.shape)
 
     orig_sentence = [pp.idx2word[idx] for idx in sample_input]
-    true_tags = [pp.idx2tag[idx] for idx in sample_labels]
     predicted_tags = [pp.idx2tag[idx] for idx in mle_output]
+    if use_true_tags:
+        true_tags = [pp.idx2tag[idx] for idx in sample_labels]
+    else:
+        true_tags = predicted_tags
 
     fancy_print(orig_sentence,predicted_tags,true_tags)
 
